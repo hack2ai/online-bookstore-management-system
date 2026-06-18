@@ -1,0 +1,52 @@
+# ===== Maven =====
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ===== Compiled output =====
+*.class
+
+# ===== IntelliJ IDEA =====
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ===== Eclipse =====
+.classpath
+.project
+.settings/
+bin/
+
+# ===== VS Code =====
+.vscode/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Runtime-generated content =====
+# Book cover image uploads (see app.upload.dir in application.properties) -
+# this is created/written to at runtime, not source, so it never belongs in git.
+uploads/
+
+# ===== Local secret overrides =====
+# Real DB credentials / JWT secrets / Razorpay keys belong in environment
+# variables (see application.properties), never in a committed file. These
+# patterns exist only as a safety net in case a local override file is
+# ever created.
+application-local.properties
+application-secrets.properties
+.env
