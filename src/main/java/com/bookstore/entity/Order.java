@@ -15,19 +15,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A placed order, owned by exactly one {@link User} and made up of one or
- * more {@link OrderItem}s.
- *
- * <p>{@code totalAmount} is computed once at order-placement time
- * ({@code OrderServiceImpl#placeOrder}) from the cart contents and persisted
- * here — it is intentionally NOT recomputed on the fly from
- * {@code orderItems} each time the order is read, because that would let a
- * later change to {@code OrderItem.price} (there isn't one — it's never
- * updated after creation) or a bug silently change a customer's historical
- * total. Treat this column as the authoritative, frozen amount the customer
- * was actually charged.
- */
 @Entity
 @Table(name = "orders")
 @Getter
@@ -35,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"user", "orderItems"})
+@ToString(exclude = {"user", "orderItems", "payment"})
 public class Order {
 
     @Id
@@ -49,6 +36,10 @@ public class Order {
     @NotNull
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
+
+    @NotNull
+    @Column(name = "shipping_address", nullable = false, length = 500)
+    private String shippingAddress;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
