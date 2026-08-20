@@ -1,6 +1,7 @@
 package com.bookstore.controller;
 
 import com.bookstore.dto.request.CheckoutRequest;
+import com.bookstore.dto.request.OrderStatusRequest;
 import com.bookstore.dto.response.ApiResponse;
 import com.bookstore.dto.response.OrderResponse;
 import com.bookstore.entity.OrderStatus;
@@ -24,64 +25,44 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Tag(name = "Orders", description = "Checkout, customer orders and administration")
 public class OrderController {
-
     private final OrderService orderService;
 
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Place an order from the authenticated customer's cart")
-    public ResponseEntity<ApiResponse<OrderResponse>> checkout(
-            Authentication authentication, @Valid @RequestBody CheckoutRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Order placed successfully.",
-                        orderService.placeOrder(userId(authentication), request)));
+    public ResponseEntity<ApiResponse<OrderResponse>> checkout(Authentication authentication, @Valid @RequestBody CheckoutRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Order placed successfully.", orderService.placeOrder(userId(authentication), request)));
     }
 
     @GetMapping
     @PreAuthorize("hasRole('CUSTOMER')")
-    @Operation(summary = "Get the authenticated customer's order history")
-    public ResponseEntity<ApiResponse<Page<OrderResponse>>> myOrders(
-            Authentication authentication,
-            @PageableDefault(size = 20, sort = "orderDate") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully.",
-                orderService.getMyOrders(userId(authentication), pageable)));
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> myOrders(Authentication authentication, @PageableDefault(size = 20, sort = "orderDate") Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully.", orderService.getMyOrders(userId(authentication), pageable)));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    @Operation(summary = "Get one of the authenticated customer's orders")
-    public ResponseEntity<ApiResponse<OrderResponse>> myOrder(
-            Authentication authentication, @PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Order retrieved successfully.",
-                orderService.getMyOrder(userId(authentication), id)));
+    public ResponseEntity<ApiResponse<OrderResponse>> myOrder(Authentication authentication, @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Order retrieved successfully.", orderService.getMyOrder(userId(authentication), id)));
     }
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasRole('CUSTOMER')")
-    @Operation(summary = "Cancel a pending or confirmed order")
-    public ResponseEntity<ApiResponse<Void>> cancel(
-            Authentication authentication, @PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> cancel(Authentication authentication, @PathVariable Long id) {
         orderService.cancelOrder(userId(authentication), id);
         return ResponseEntity.ok(ApiResponse.success("Order cancelled successfully."));
     }
 
     @GetMapping("/admin/all")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Admin: list all orders, optionally by status")
-    public ResponseEntity<ApiResponse<Page<OrderResponse>>> allOrders(
-            @RequestParam(required = false) OrderStatus status,
-            @PageableDefault(size = 20, sort = "orderDate") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully.",
-                orderService.getAllOrders(status, pageable)));
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> allOrders(@RequestParam(required = false) OrderStatus status, @PageableDefault(size = 20, sort = "orderDate") Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully.", orderService.getAllOrders(status, pageable)));
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Admin: advance an order status")
-    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
-            @PathVariable Long id, @RequestParam OrderStatus status) {
-        return ResponseEntity.ok(ApiResponse.success("Order status updated successfully.",
-                orderService.updateStatus(id, status)));
+    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable Long id, @Valid @RequestBody OrderStatusRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Order status updated successfully.", orderService.updateStatus(id, request.getStatus())));
     }
 
     private Long userId(Authentication authentication) {
