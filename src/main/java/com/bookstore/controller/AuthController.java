@@ -1,6 +1,7 @@
 package com.bookstore.controller;
 
 import com.bookstore.dto.request.LoginRequest;
+import com.bookstore.dto.request.RefreshTokenRequest;
 import com.bookstore.dto.request.RegisterRequest;
 import com.bookstore.dto.response.ApiResponse;
 import com.bookstore.dto.response.AuthResponse;
@@ -11,15 +12,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Register and login endpoints")
+@Tag(name = "Authentication", description = "Account and token lifecycle endpoints")
 public class AuthController {
 
     private final AuthService authService;
@@ -28,19 +26,29 @@ public class AuthController {
     @Operation(summary = "Register a new customer account")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
-
-        AuthResponse data = authService.register(request);
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Account created successfully.", data));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Account created successfully.", authService.register(request)));
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login and receive a JWT token")
+    @Operation(summary = "Login and receive access and refresh tokens")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Login successful.", authService.login(request)));
+    }
 
-        AuthResponse data = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Login successful.", data));
+    @PostMapping("/refresh")
+    @Operation(summary = "Rotate a refresh token and issue a new access token")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+            @Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully.", authService.refresh(request)));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Revoke a refresh token")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully.", null));
     }
 }
