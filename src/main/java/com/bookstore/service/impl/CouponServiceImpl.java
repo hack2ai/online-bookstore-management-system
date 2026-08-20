@@ -26,6 +26,21 @@ public class CouponServiceImpl implements CouponService {
     public DiscountResponse calculateDiscount(Long userId, String code, BigDecimal subtotal) {
         Coupon coupon = couponRepository.findByCodeIgnoreCase(code.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+        return calculate(coupon, userId, subtotal);
+    }
+
+    @Transactional
+    public DiscountResponse calculateAndReserve(Long userId, String code, BigDecimal subtotal,
+                                                 com.bookstore.entity.User user) {
+        Coupon coupon = couponRepository.findWithLockByCodeIgnoreCase(code.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+        DiscountResponse response = calculate(coupon, userId, subtotal);
+        coupon.setUsedCount(coupon.getUsedCount() + 1);
+        usageRepository.save(com.bookstore.entity.CouponUsage.builder().coupon(coupon).user(user).build());
+        return response;
+    }
+
+    private DiscountResponse calculate(Coupon coupon, Long userId, BigDecimal subtotal) {
         LocalDateTime now = LocalDateTime.now();
         if (!coupon.isActive() || now.isBefore(coupon.getStartsAt()) || now.isAfter(coupon.getExpiresAt())) {
             throw new IllegalStateException("This coupon is not currently active.");
@@ -43,9 +58,7 @@ public class CouponServiceImpl implements CouponService {
         BigDecimal discount = coupon.getType() == CouponType.PERCENTAGE
                 ? subtotal.multiply(coupon.getValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                 : coupon.getValue();
-        if (coupon.getMaxDiscountAmount() != null) {
-            discount = discount.min(coupon.getMaxDiscountAmount());
-        }
+        if (coupon.getMaxDiscountAmount() != null) discount = discount.min(coupon.getMaxDiscountAmount());
         discount = discount.min(subtotal).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 
         return DiscountResponse.builder().code(coupon.getCode()).discount(discount)
