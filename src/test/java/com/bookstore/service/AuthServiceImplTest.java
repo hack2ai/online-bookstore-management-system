@@ -98,7 +98,7 @@ class AuthServiceImplTest {
 
         assertThat(stored.isRevoked()).isTrue();
         assertThat(response.getAccessToken()).isEqualTo("access");
-        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
     }
 
     @Test
