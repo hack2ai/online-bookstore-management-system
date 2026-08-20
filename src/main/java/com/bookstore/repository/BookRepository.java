@@ -21,6 +21,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @Query("select b from Book b where b.id = :id")
     Optional<Book> findByIdForUpdate(@Param("id") Long id);
 
+    long countByStockLessThanEqual(Integer stock);
+
     @Query("""
             SELECT b FROM Book b
             WHERE (:keyword IS NULL
