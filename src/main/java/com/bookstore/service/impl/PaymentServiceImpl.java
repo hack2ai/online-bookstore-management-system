@@ -9,7 +9,6 @@ import com.bookstore.entity.PaymentStatus;
 import com.bookstore.exception.ResourceNotFoundException;
 import com.bookstore.repository.OrderRepository;
 import com.bookstore.service.PaymentService;
-import com.razorpay.Order as RazorpayOrder;
 import com.razorpay.RazorpayClient;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONObject;
@@ -43,7 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
             options.put("amount", order.getTotalAmount().movePointRight(2).longValueExact());
             options.put("currency", "INR");
             options.put("receipt", "BOOKSTORE-" + order.getId());
-            RazorpayOrder razorpayOrder = client.orders.create(options);
+            com.razorpay.Order razorpayOrder = client.orders.create(options);
 
             Payment payment = order.getPayment();
             if (payment == null) {
@@ -78,11 +77,12 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         try {
-            String payload = request.getRazorpayOrderId() + "|" + request.getRazorpayPaymentId();
-            com.razorpay.Utils.verifyPaymentSignature(
-                    new JSONObject().put("razorpay_order_id", request.getRazorpayOrderId())
-                            .put("razorpay_payment_id", request.getRazorpayPaymentId())
-                            .put("razorpay_signature", request.getRazorpaySignature()), keySecret);
+            JSONObject attributes = new JSONObject()
+                    .put("razorpay_order_id", request.getRazorpayOrderId())
+                    .put("razorpay_payment_id", request.getRazorpayPaymentId())
+                    .put("razorpay_signature", request.getRazorpaySignature());
+            com.razorpay.Utils.verifyPaymentSignature(attributes, keySecret);
+
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
             payment.setTransactionId(request.getRazorpayPaymentId());
             if (order.getStatus() == OrderStatus.PENDING) {
