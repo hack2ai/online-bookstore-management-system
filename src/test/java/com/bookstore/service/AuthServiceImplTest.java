@@ -94,7 +94,7 @@ class AuthServiceImplTest {
         when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuthResponse response = service.refresh(RefreshTokenRequest.builder().refreshToken("raw-refresh").build());
+        AuthResponse response = service.refresh(new RefreshTokenRequest("raw-refresh"));
 
         assertThat(stored.isRevoked()).isTrue();
         assertThat(response.getAccessToken()).isEqualTo("access");
@@ -107,7 +107,7 @@ class AuthServiceImplTest {
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().minusMinutes(1)).build();
         when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
 
-        assertThatThrownBy(() -> service.refresh(RefreshTokenRequest.builder().refreshToken("raw-refresh").build()))
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh")))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("expired");
         assertThat(stored.isRevoked()).isTrue();
@@ -119,7 +119,7 @@ class AuthServiceImplTest {
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
         when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
 
-        service.logout(RefreshTokenRequest.builder().refreshToken("raw-refresh").build());
+        service.logout(new RefreshTokenRequest("raw-refresh"));
 
         assertThat(stored.isRevoked()).isTrue();
         verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
