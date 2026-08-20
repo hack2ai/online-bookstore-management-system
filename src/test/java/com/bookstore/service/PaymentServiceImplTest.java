@@ -27,13 +27,14 @@ import static org.mockito.Mockito.*;
 class PaymentServiceImplTest {
 
     @Mock OrderRepository orderRepository;
+    @Mock CouponService couponService;
 
     private PaymentServiceImpl service;
     private Order order;
 
     @BeforeEach
     void setUp() {
-        service = new PaymentServiceImpl(orderRepository);
+        service = new PaymentServiceImpl(orderRepository, couponService);
 
         User user = User.builder().id(1L).name("Test").email("test@example.com")
                 .password("hash").role(Role.CUSTOMER).build();
