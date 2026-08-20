@@ -14,10 +14,9 @@ import com.bookstore.repository.UserRepository;
 import com.bookstore.service.impl.CartServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -97,9 +96,6 @@ class CartServiceImplTest {
 
     @Test
     void updateItemRejectsQuantityAboveMaximum() {
-        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
-        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
-
         assertThatThrownBy(() -> service.updateItem(1L, 10L, 101))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("between 1 and 100");
