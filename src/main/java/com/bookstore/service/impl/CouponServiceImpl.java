@@ -3,6 +3,8 @@ package com.bookstore.service.impl;
 import com.bookstore.dto.response.DiscountResponse;
 import com.bookstore.entity.Coupon;
 import com.bookstore.entity.CouponType;
+import com.bookstore.entity.CouponUsage;
+import com.bookstore.entity.User;
 import com.bookstore.exception.ResourceNotFoundException;
 import com.bookstore.repository.CouponRepository;
 import com.bookstore.repository.CouponUsageRepository;
@@ -29,15 +31,27 @@ public class CouponServiceImpl implements CouponService {
         return calculate(coupon, userId, subtotal);
     }
 
+    @Override
     @Transactional
-    public DiscountResponse calculateAndReserve(Long userId, String code, BigDecimal subtotal,
-                                                 com.bookstore.entity.User user) {
+    public DiscountResponse calculateAndReserve(Long userId, String code, BigDecimal subtotal, User user) {
         Coupon coupon = couponRepository.findWithLockByCodeIgnoreCase(code.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
         DiscountResponse response = calculate(coupon, userId, subtotal);
         coupon.setUsedCount(coupon.getUsedCount() + 1);
-        usageRepository.save(com.bookstore.entity.CouponUsage.builder().coupon(coupon).user(user).build());
+        usageRepository.save(CouponUsage.builder().coupon(coupon).user(user).build());
         return response;
+    }
+
+    @Override
+    @Transactional
+    public void releaseReservation(Long userId, String code) {
+        if (code == null || code.isBlank()) return;
+        Coupon coupon = couponRepository.findWithLockByCodeIgnoreCase(code.trim()).orElse(null);
+        if (coupon == null) return;
+        usageRepository.findByCouponIdAndUserId(coupon.getId(), userId).ifPresent(usage -> {
+            usageRepository.delete(usage);
+            coupon.setUsedCount(Math.max(0, coupon.getUsedCount() - 1));
+        });
     }
 
     private DiscountResponse calculate(Coupon coupon, Long userId, BigDecimal subtotal) {
