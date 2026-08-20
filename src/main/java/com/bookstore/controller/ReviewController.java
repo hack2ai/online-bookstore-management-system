@@ -3,6 +3,7 @@ package com.bookstore.controller;
 import com.bookstore.dto.request.ReviewRequest;
 import com.bookstore.dto.response.ApiResponse;
 import com.bookstore.dto.response.ReviewResponse;
+import com.bookstore.dto.response.ReviewSummaryResponse;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.service.ReviewService;
 import jakarta.validation.Valid;
