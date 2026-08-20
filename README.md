@@ -1,6 +1,6 @@
 # Online Bookstore Management System
 
-A production-oriented full-stack bookstore platform built with Java 21 and Spring Boot. Customers can browse the catalog, manage carts, checkout, place orders and pay through Razorpay; administrators manage books, categories and order workflows.
+A production-oriented full-stack bookstore platform built with Java 21 and Spring Boot. Customers can browse the catalog, manage carts, use wishlists, review purchased books, apply coupons, checkout, place orders and pay through Razorpay; administrators manage the catalog, inventory, customers, orders and analytics.
 
 > **Status: 🚧 Professionalization in progress**
 >
@@ -15,18 +15,19 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - **Payments:** Razorpay
 - **API docs:** springdoc OpenAPI / Swagger UI
 - **Build:** Maven
-- **Testing:** Spring Boot Test · Spring Security Test · H2 test profile
-- **CI:** GitHub Actions
+- **Testing:** Spring Boot Test · Spring Security Test · Mockito · H2 test profile
+- **CI/CD:** GitHub Actions · Docker · Docker Compose
 
 ## Current Features
 
 ### Authentication & security
 - Customer/admin roles
 - JWT authentication
-- Refresh-token rotation and revocation
+- Refresh-token rotation and revocation with hashed persisted refresh tokens
 - BCrypt password hashing
 - Method-level authorization
 - Stateless API security
+- Customer/admin ownership boundaries for carts, orders and reviews
 
 ### Catalog
 - Book CRUD for administrators
@@ -43,21 +44,50 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - Duplicate cart-item merging
 - Stock validation
 - BigDecimal price calculations
+- Wishlist management
 
 ### Orders
 - Checkout from cart
 - Frozen historical item prices
 - Shipping-address snapshot
+- Coupon-aware subtotal/discount/final-total snapshots
 - Atomic inventory updates with pessimistic row locking
 - Customer order history
-- Order cancellation
-- Admin status management
+- Order cancellation with inventory restoration
+- Admin status management with validated state transitions
+
+### Coupons
+- Percentage and fixed-value discounts
+- Minimum order amount
+- Maximum discount cap
+- Start/expiry dates
+- Usage limits
+- One-use-per-customer enforcement
+- Transaction-safe coupon reservation/release lifecycle
+
+### Reviews & ratings
+- Ratings from 1 to 5
+- Review comments with validation
+- One review per customer/book
+- Verified-purchase requirement
+- Review ownership protection
+- Average rating and review count
 
 ### Payments
 - Razorpay order creation
 - Server-side signature verification
 - Payment state tracking
-- Repeat successful verification is handled idempotently
+- Idempotent successful verification
+- Cancelled orders cannot be paid
+
+### Admin
+- Dashboard metrics
+- Revenue / paid-order analytics
+- Book management
+- Category management
+- Inventory monitoring and low-stock visibility
+- Customer management with order/spending aggregates
+- Order status operations
 
 ## API Overview
 
@@ -84,6 +114,17 @@ POST   /api/cart/items            CUSTOMER
 PUT    /api/cart/items/{bookId}   CUSTOMER
 DELETE /api/cart/items/{bookId}   CUSTOMER
 DELETE /api/cart                  CUSTOMER
+
+GET    /api/wishlist              CUSTOMER
+POST   /api/wishlist/{bookId}     CUSTOMER
+DELETE /api/wishlist/{bookId}     CUSTOMER
+
+GET    /api/books/{bookId}/reviews
+GET    /api/books/{bookId}/reviews/summary
+POST   /api/books/{bookId}/reviews          CUSTOMER
+DELETE /api/books/{bookId}/reviews/{id}     CUSTOMER
+
+POST   /api/coupons/validate      CUSTOMER
 
 POST   /api/orders/checkout       CUSTOMER
 GET    /api/orders                CUSTOMER
@@ -117,6 +158,7 @@ src/main/java/com/bookstore
 - Java 21
 - Maven 3.8+
 - MySQL 8 for normal development
+- Docker + Docker Compose for containerized development
 
 ### Development
 
@@ -139,6 +181,16 @@ The test profile uses H2 and does not require a running MySQL instance:
 mvn test
 ```
 
+The test suite covers authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
+
+### Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Compose starts MySQL and the bookstore application with a healthcheck dependency. For production, provide secrets through the environment rather than committing them to the repository.
+
 ## Production
 
 Use the `prod` profile:
@@ -151,6 +203,10 @@ Production requires environment variables for database credentials, JWT secret a
 
 Never commit real credentials, API keys or JWT secrets.
 
+## CI
+
+GitHub Actions runs the Maven test suite and packages the application artifact on pushes and pull requests. A real deployment should add environment-specific secrets and an explicit deployment job after CI is consistently green.
+
 ## Engineering Principles
 
 - Controllers remain thin.
@@ -160,5 +216,6 @@ Never commit real credentials, API keys or JWT secrets.
 - Inventory checkout uses database row locking.
 - Historical order prices are immutable snapshots.
 - Database constraints remain the final integrity boundary.
+- Coupon usage is concurrency-aware and tied to payment/order lifecycle.
 - Production secrets come from the environment.
 - Every phase should remain buildable and testable before merging to `main`.
