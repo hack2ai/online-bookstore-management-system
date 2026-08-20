@@ -1,6 +1,7 @@
 package com.bookstore.service;
 
 import com.bookstore.dto.request.PaymentVerifyRequest;
+import com.bookstore.dto.response.PaymentResponse;
 import com.bookstore.entity.Order;
 import com.bookstore.entity.OrderStatus;
 import com.bookstore.entity.Payment;
@@ -29,20 +30,17 @@ class PaymentServiceImplTest {
 
     private PaymentServiceImpl service;
     private Order order;
-    private Payment payment;
 
     @BeforeEach
     void setUp() {
         service = new PaymentServiceImpl(orderRepository);
-        service.setKeyIdForTest("rzp_test_key");
-        service.setKeySecretForTest("test_secret_that_is_not_used_for_success_path");
 
         User user = User.builder().id(1L).name("Test").email("test@example.com")
                 .password("hash").role(Role.CUSTOMER).build();
         order = Order.builder().id(100L).user(user).totalAmount(new BigDecimal("800.00"))
                 .shippingAddress("Bengaluru").status(OrderStatus.PENDING).build();
-        payment = Payment.builder().order(order).paymentMethod("RAZORPAY")
-                .paymentStatus(PaymentStatus.SUCCESS).transactionId("pay_123").build();
+        Payment payment = Payment.builder().order(order).paymentMethod("RAZORPAY")
+                .paymentStatus(PaymentStatus.SUCCESS).transactionId("order_123").build();
         order.setPayment(payment);
     }
 
