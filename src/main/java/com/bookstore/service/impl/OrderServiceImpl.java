@@ -40,13 +40,10 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse placeOrder(Long userId, CheckoutRequest request) {
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalStateException("Your cart is empty."));
+        Cart cart = cartRepository.findByUserId(userId).orElseThrow(() -> new IllegalStateException("Your cart is empty."));
         if (cart.getItems().isEmpty()) throw new IllegalStateException("Your cart is empty.");
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", userId));
         Order order = Order.builder().user(user).shippingAddress(request.getShippingAddress().trim())
                 .status(OrderStatus.PENDING).subtotalAmount(BigDecimal.ZERO)
                 .discountAmount(BigDecimal.ZERO).totalAmount(BigDecimal.ZERO).build();
@@ -99,6 +96,9 @@ public class OrderServiceImpl implements OrderService {
             Book book = bookRepository.findByIdForUpdate(item.getBook().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Book", item.getBook().getId()));
             book.setStock(book.getStock() + item.getQuantity());
+        }
+        if (order.getCouponCode() != null && order.getStatus() == OrderStatus.PENDING) {
+            couponService.releaseReservation(userId, order.getCouponCode());
         }
         order.setStatus(OrderStatus.CANCELLED);
     }
