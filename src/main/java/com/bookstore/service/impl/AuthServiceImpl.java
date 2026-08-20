@@ -19,6 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -29,59 +31,38 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
 
-    // -------------------------------------------------------------------------
-    // Register
-    // -------------------------------------------------------------------------
-
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
 
-        // Fast path duplicate check — friendly error before we hit the DB constraint
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(email)) {
             throw new DuplicateResourceException(
-                    "An account with email '" + request.getEmail() + "' already exists.");
+                    "An account with email '" + email + "' already exists.");
         }
 
         User user = User.builder()
-                .name(request.getName())
-                .email(request.getEmail().toLowerCase().trim())
+                .name(request.getName().trim())
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.CUSTOMER)          // new registrations are always CUSTOMER
-                .phone(request.getPhone())
-                .address(request.getAddress())
+                .role(Role.CUSTOMER)
+                .phone(normalizeOptional(request.getPhone()))
+                .address(normalizeOptional(request.getAddress()))
                 .build();
 
         user = userRepository.save(user);
         log.info("New customer registered: {} (id={})", user.getEmail(), user.getId());
 
         String token = jwtUtil.generateToken(new CustomUserDetails(user));
-
-        return AuthResponse.builder()
-                .token(token)
-                .userId(user.getId())
-                .name(user.getName())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        return toAuthResponse(user, token);
     }
-
-    // -------------------------------------------------------------------------
-    // Login
-    // -------------------------------------------------------------------------
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.getEmail());
 
-        // Delegates to DaoAuthenticationProvider → CustomUserDetailsService →
-        // PasswordEncoder.matches(). Throws BadCredentialsException automatically
-        // if email not found OR password doesn't match — same error either way,
-        // so the response doesn't leak which half was wrong.
         Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail().toLowerCase().trim(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(email, request.getPassword())
         );
 
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
@@ -90,12 +71,28 @@ public class AuthServiceImpl implements AuthService {
         log.info("User logged in: {} (role={})",
                 userDetails.getUsername(), userDetails.getUser().getRole());
 
+        return toAuthResponse(userDetails.getUser(), token);
+    }
+
+    private AuthResponse toAuthResponse(User user, String accessToken) {
         return AuthResponse.builder()
-                .token(token)
-                .userId(userDetails.getUserId())
-                .name(userDetails.getUser().getName())
-                .email(userDetails.getUsername())
-                .role(userDetails.getUser().getRole())
+                .accessToken(accessToken)
+                .userId(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
                 .build();
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }
