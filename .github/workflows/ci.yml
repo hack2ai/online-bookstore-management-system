@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, 'feature/**' ]
   pull_request:
@@ -31,3 +32,6 @@ jobs:
 
       - name: Verify production artifact
         run: test -f target/bookstore.jar
+
+      - name: Build Docker image
+        run: docker build --tag bookstore:ci .
