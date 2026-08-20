@@ -17,6 +17,12 @@ public class AuthResponse {
     @Builder.Default
     private String tokenType = "Bearer";
 
+    /**
+     * Opaque refresh token. It can be exchanged for a new access token and is
+     * stored only as a SHA-256 hash on the server.
+     */
+    private String refreshToken;
+
     private Long userId;
     private String name;
     private String email;
