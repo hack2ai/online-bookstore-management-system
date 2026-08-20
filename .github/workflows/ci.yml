@@ -25,3 +25,9 @@ jobs:
 
       - name: Run tests
         run: mvn -B test
+
+      - name: Package application
+        run: mvn -B -DskipTests package
+
+      - name: Verify production artifact
+        run: test -f target/bookstore.jar
