@@ -51,7 +51,7 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal total = BigDecimal.ZERO;
         for (CartItem cartItem : cart.getItems()) {
-            Book book = bookRepository.findById(cartItem.getBook().getId())
+            Book book = bookRepository.findByIdForUpdate(cartItem.getBook().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Book", cartItem.getBook().getId()));
             int quantity = cartItem.getQuantity();
             if (book.getStock() == null || book.getStock() < quantity) {
@@ -60,11 +60,7 @@ public class OrderServiceImpl implements OrderService {
 
             BigDecimal unitPrice = book.getPrice();
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
-            order.addItem(OrderItem.builder()
-                    .book(book)
-                    .quantity(quantity)
-                    .price(unitPrice)
-                    .build());
+            order.addItem(OrderItem.builder().book(book).quantity(quantity).price(unitPrice).build());
             book.setStock(book.getStock() - quantity);
             total = total.add(lineTotal);
         }
@@ -97,7 +93,8 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Only pending or confirmed orders can be cancelled.");
         }
         for (OrderItem item : order.getOrderItems()) {
-            Book book = item.getBook();
+            Book book = bookRepository.findByIdForUpdate(item.getBook().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Book", item.getBook().getId()));
             book.setStock(book.getStock() + item.getQuantity());
         }
         order.setStatus(OrderStatus.CANCELLED);
@@ -139,14 +136,10 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderResponse toResponse(Order order) {
         var items = order.getOrderItems().stream().map(item -> OrderItemResponse.builder()
-                .bookId(item.getBook().getId())
-                .title(item.getBook().getTitle())
-                .quantity(item.getQuantity())
-                .unitPrice(item.getPrice())
-                .subtotal(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .build()).toList();
-        return OrderResponse.builder()
-                .id(order.getId()).totalAmount(order.getTotalAmount()).status(order.getStatus())
+                .bookId(item.getBook().getId()).title(item.getBook().getTitle())
+                .quantity(item.getQuantity()).unitPrice(item.getPrice())
+                .subtotal(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))).build()).toList();
+        return OrderResponse.builder().id(order.getId()).totalAmount(order.getTotalAmount()).status(order.getStatus())
                 .orderDate(order.getOrderDate()).shippingAddress(order.getShippingAddress()).items(items).build();
     }
 }
