@@ -10,12 +10,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class OrderResponse {
     private Long id;
+    private BigDecimal subtotalAmount;
+    private BigDecimal discountAmount;
+    private String couponCode;
     private BigDecimal totalAmount;
     private OrderStatus status;
     private LocalDateTime orderDate;
