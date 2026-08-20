@@ -16,6 +16,7 @@ import com.bookstore.repository.BookRepository;
 import com.bookstore.repository.CartRepository;
 import com.bookstore.repository.OrderRepository;
 import com.bookstore.repository.UserRepository;
+import com.bookstore.service.CouponService;
 import com.bookstore.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -34,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
-    private final com.bookstore.service.impl.CouponServiceImpl couponService;
+    private final CouponService couponService;
 
     @Override
     @Transactional
@@ -64,9 +65,8 @@ public class OrderServiceImpl implements OrderService {
             book.setStock(book.getStock() - quantity);
         }
 
-        DiscountResponse discount = null;
         if (request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
-            discount = couponService.calculateAndReserve(userId, request.getCouponCode(), subtotal, user);
+            DiscountResponse discount = couponService.calculateAndReserve(userId, request.getCouponCode(), subtotal, user);
             order.setCouponCode(discount.getCode());
             order.setDiscountAmount(discount.getDiscount());
         }
@@ -79,11 +79,13 @@ public class OrderServiceImpl implements OrderService {
         return toResponse(saved);
     }
 
-    @Override public Page<OrderResponse> getMyOrders(Long userId, Pageable pageable) {
+    @Override
+    public Page<OrderResponse> getMyOrders(Long userId, Pageable pageable) {
         return orderRepository.findByUserId(userId, pageable).map(this::toResponse);
     }
 
-    @Override public OrderResponse getMyOrder(Long userId, Long orderId) {
+    @Override
+    public OrderResponse getMyOrder(Long userId, Long orderId) {
         Order order = find(orderId); ensureOwner(order, userId); return toResponse(order);
     }
 
@@ -101,11 +103,13 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED);
     }
 
-    @Override public Page<OrderResponse> getAllOrders(OrderStatus status, Pageable pageable) {
+    @Override
+    public Page<OrderResponse> getAllOrders(OrderStatus status, Pageable pageable) {
         return (status == null ? orderRepository.findAll(pageable) : orderRepository.findByStatus(status, pageable)).map(this::toResponse);
     }
 
-    @Override @Transactional
+    @Override
+    @Transactional
     public OrderResponse updateStatus(Long orderId, OrderStatus status) {
         Order order = find(orderId); validateTransition(order.getStatus(), status); order.setStatus(status);
         return toResponse(orderRepository.save(order));
