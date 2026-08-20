@@ -27,7 +27,7 @@ public class CouponServiceImpl implements CouponService {
     @Override
     public DiscountResponse calculateDiscount(Long userId, String code, BigDecimal subtotal) {
         Coupon coupon = couponRepository.findByCodeIgnoreCase(code.trim())
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+                .orElseThrow(() -> new ResourceNotFoundException("Coupon not found with code: " + code));
         return calculate(coupon, userId, subtotal);
     }
 
@@ -35,7 +35,7 @@ public class CouponServiceImpl implements CouponService {
     @Transactional
     public DiscountResponse calculateAndReserve(Long userId, String code, BigDecimal subtotal, User user) {
         Coupon coupon = couponRepository.findWithLockByCodeIgnoreCase(code.trim())
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+                .orElseThrow(() -> new ResourceNotFoundException("Coupon not found with code: " + code));
         DiscountResponse response = calculate(coupon, userId, subtotal);
         coupon.setUsedCount(coupon.getUsedCount() + 1);
         usageRepository.save(CouponUsage.builder().coupon(coupon).user(user).build());
