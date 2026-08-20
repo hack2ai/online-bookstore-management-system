@@ -1,5 +1,6 @@
 package com.bookstore.controller;
 
+import com.bookstore.dto.response.OrderResponse;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +25,15 @@ public class OrderPageController {
     public String orders(Authentication authentication,
                          @PageableDefault(size = 20, sort = "orderDate") Pageable pageable,
                          Model model) {
-        Page<?> orders = orderService.getMyOrders(userId(authentication), pageable);
-        model.addAttribute("orders", orders);
+        Page<OrderResponse> orders = orderService.getMyOrders(userId(authentication), pageable);
+        model.addAttribute("orders", orders.getContent());
         return "orders";
+    }
+
+    @GetMapping("/{id}")
+    public String order(@PathVariable Long id, Authentication authentication, Model model) {
+        model.addAttribute("order", orderService.getMyOrder(userId(authentication), id));
+        return "order-details";
     }
 
     private Long userId(Authentication authentication) {
