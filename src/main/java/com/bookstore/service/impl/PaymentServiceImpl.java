@@ -8,6 +8,7 @@ import com.bookstore.entity.Payment;
 import com.bookstore.entity.PaymentStatus;
 import com.bookstore.exception.ResourceNotFoundException;
 import com.bookstore.repository.OrderRepository;
+import com.bookstore.service.CouponService;
 import com.bookstore.service.PaymentService;
 import com.razorpay.RazorpayClient;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentServiceImpl implements PaymentService {
 
     private final OrderRepository orderRepository;
+    private final CouponService couponService;
 
     @Value("${razorpay.key-id}")
     private String keyId;
@@ -32,9 +34,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse createPayment(Long userId, Long orderId) {
         Order order = findOwnedOrder(userId, orderId);
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new IllegalStateException("Cancelled orders cannot be paid.");
-        }
+        if (order.getStatus() == OrderStatus.CANCELLED) throw new IllegalStateException("Cancelled orders cannot be paid.");
 
         try {
             RazorpayClient client = new RazorpayClient(keyId, keySecret);
@@ -53,8 +53,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setTransactionId(razorpayOrder.get("id"));
             orderRepository.save(order);
 
-            return PaymentResponse.builder().orderId(orderId)
-                    .razorpayOrderId(razorpayOrder.get("id"))
+            return PaymentResponse.builder().orderId(orderId).razorpayOrderId(razorpayOrder.get("id"))
                     .transactionId(payment.getTransactionId()).status(payment.getPaymentStatus()).build();
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to create Razorpay payment order.", ex);
@@ -66,15 +65,9 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse verifyPayment(Long userId, Long orderId, PaymentVerifyRequest request) {
         Order order = findOwnedOrder(userId, orderId);
         Payment payment = order.getPayment();
-        if (payment == null || payment.getTransactionId() == null) {
-            throw new IllegalStateException("No payment has been created for this order.");
-        }
-        if (!payment.getTransactionId().equals(request.getRazorpayOrderId())) {
-            throw new IllegalStateException("Payment order ID does not match this order.");
-        }
-        if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            return response(order, payment, request.getRazorpayOrderId());
-        }
+        if (payment == null || payment.getTransactionId() == null) throw new IllegalStateException("No payment has been created for this order.");
+        if (!payment.getTransactionId().equals(request.getRazorpayOrderId())) throw new IllegalStateException("Payment order ID does not match this order.");
+        if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) return response(order, payment, request.getRazorpayOrderId());
 
         try {
             JSONObject attributes = new JSONObject()
@@ -82,27 +75,28 @@ public class PaymentServiceImpl implements PaymentService {
                     .put("razorpay_payment_id", request.getRazorpayPaymentId())
                     .put("razorpay_signature", request.getRazorpaySignature());
             com.razorpay.Utils.verifyPaymentSignature(attributes, keySecret);
-
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
             payment.setTransactionId(request.getRazorpayPaymentId());
-            if (order.getStatus() == OrderStatus.PENDING) {
-                order.setStatus(OrderStatus.CONFIRMED);
-            }
+            if (order.getStatus() == OrderStatus.PENDING) order.setStatus(OrderStatus.CONFIRMED);
             orderRepository.save(order);
             return response(order, payment, request.getRazorpayOrderId());
         } catch (Exception ex) {
             payment.setPaymentStatus(PaymentStatus.FAILED);
             orderRepository.save(order);
+            if (order.getStatus() == OrderStatus.PENDING && order.getCouponCode() != null) {
+                couponService.releaseReservation(userId, order.getCouponCode());
+                order.setCouponCode(null);
+                order.setDiscountAmount(java.math.BigDecimal.ZERO);
+                order.setTotalAmount(order.getSubtotalAmount());
+                orderRepository.save(order);
+            }
             throw new IllegalStateException("Payment signature verification failed.");
         }
     }
 
     private Order findOwnedOrder(Long userId, Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
-        if (!order.getUser().getId().equals(userId)) {
-            throw new ResourceNotFoundException("Order", orderId);
-        }
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+        if (!order.getUser().getId().equals(userId)) throw new ResourceNotFoundException("Order", orderId);
         return order;
     }
 
