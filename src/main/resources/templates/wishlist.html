@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Wishlist — Bookstore</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body{background:#f7f7f4;color:#172033;font-family:Inter,system-ui,sans-serif}.navbar{background:#fff;border-bottom:1px solid #ecebe7}.brand{font-weight:800;letter-spacing:-.04em}.card{border:1px solid #e8e6e1;border-radius:20px}.cover{height:170px;background:linear-gradient(145deg,#e8e1d8,#c8d2df);display:flex;align-items:center;justify-content:center}.muted{color:#6b7280}.accent{background:#e07a5f;color:#fff;border:0}.accent:hover{background:#ca654d;color:#fff}</style>
+</head>
+<body>
+<nav class="navbar"><div class="container py-3 d-flex justify-content-between align-items-center"><a class="navbar-brand brand" href="/">BOOKSTORE<span style="color:#e07a5f">.</span></a><div class="d-flex gap-2"><a class="btn btn-sm btn-outline-dark rounded-pill" href="/account">Account</a><a class="btn btn-sm btn-outline-dark rounded-pill" href="/cart">Cart</a></div></div></nav>
+<main class="container py-5"><div class="d-flex justify-content-between align-items-end mb-4"><div><div class="text-secondary text-uppercase small fw-bold">Saved for later</div><h1 class="fw-bold mb-1">My Wishlist</h1><p class="muted mb-0">Keep books you want to come back to.</p></div><a href="/" class="btn btn-outline-dark rounded-pill">Continue shopping</a></div>
+<div class="text-center py-5" th:if="${items.empty}"><div style="font-size:4rem;opacity:.35">♡</div><h3 class="fw-bold">Your wishlist is empty</h3><p class="muted">Save a book from its details page and find it here later.</p><a href="/" class="btn accent rounded-pill">Browse books</a></div>
+<div class="row g-4" th:unless="${items.empty}"><div class="col-sm-6 col-lg-4" th:each="item : ${items}"><article class="card overflow-hidden h-100"><div class="cover"><i class="bi bi-book" style="font-size:4rem;opacity:.45"></i></div><div class="p-4 d-flex flex-column h-100"><div class="text-secondary small mb-1" th:text="${item.author}">Author</div><h5 class="fw-bold" th:text="${item.title}">Book title</h5><div class="fs-5 fw-bold mt-2 mb-3" th:text="${'₹' + item.price}">₹0</div><div class="mt-auto d-flex flex-wrap gap-2"><a class="btn btn-sm accent rounded-pill" th:href="@{'/books/' + ${item.bookId}}">View book</a><form method="post" th:action="@{'/wishlist/' + ${item.bookId} + '/remove'}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="btn btn-sm btn-outline-danger rounded-pill">Remove</button></form></div></div></article></div></div>
+</main>
+</body>
+</html>
