@@ -10,16 +10,10 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Adapter between our {@link User} entity and Spring Security's
- * {@link UserDetails} contract.
+ * Adapter between the User entity and Spring Security's UserDetails contract.
  *
- * Spring Security never touches the User entity directly — it always goes
- * through this wrapper. Keeping them separate means we can change either
- * side without breaking the other.
- *
- * The authority is "ROLE_" + role.name() (e.g. "ROLE_ADMIN"), which is
- * what Spring Security expects for @PreAuthorize("hasRole('ADMIN')") and
- * hasRole() in SecurityConfig to work correctly.
+ * <p>The entity remains an application/domain object while this class exposes
+ * only the identity and authorities Spring Security needs.</p>
  */
 public class CustomUserDetails implements UserDetails {
 
@@ -29,9 +23,6 @@ public class CustomUserDetails implements UserDetails {
     public CustomUserDetails(User user) {
         this.user = user;
     }
-
-    @Getter
-    private final Long id = null; // resolved lazily via getUser().getId()
 
     public Long getUserId() {
         return user.getId();
@@ -47,14 +38,29 @@ public class CustomUserDetails implements UserDetails {
         return user.getPassword();
     }
 
-    /** Spring Security uses "username" as the primary key; we use email. */
+    /** Spring Security uses username as the primary credential identifier; this app uses email. */
     @Override
     public String getUsername() {
         return user.getEmail();
     }
 
-    @Override public boolean isAccountNonExpired()  { return true; }
-    @Override public boolean isAccountNonLocked()   { return true; }
-    @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled()            { return true; }
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
 }

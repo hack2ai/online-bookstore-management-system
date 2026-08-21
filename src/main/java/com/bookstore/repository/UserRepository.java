@@ -1,27 +1,26 @@
 package com.bookstore.repository;
 
+import com.bookstore.entity.Role;
 import com.bookstore.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-
-    /**
-     * Used by both {@code AuthServiceImpl} (login: load the user by the
-     * email they submitted, then verify their password against the hash)
-     * and {@code CustomUserDetailsService} (Spring Security loads the
-     * principal by email/username on every authenticated request).
-     */
     Optional<User> findByEmail(String email);
-
-    /**
-     * Used at registration time to return a clean 409 Conflict instead of
-     * letting the request fall through to the unique-constraint violation
-     * on insert. Both layers matter: this is the fast, friendly check; the
-     * DB constraint (see {@code User} entity) is the actual safety net
-     * against a race between two near-simultaneous registrations for the
-     * same email.
-     */
     boolean existsByEmail(String email);
+    long countByRole(Role role);
+
+    @Query("""
+            select u from User u
+            where u.role = :role
+              and (:keyword is null
+                   or lower(u.name) like lower(concat('%', :keyword, '%'))
+                   or lower(u.email) like lower(concat('%', :keyword, '%')))
+            """)
+    Page<User> searchByRole(@Param("role") Role role, @Param("keyword") String keyword, Pageable pageable);
 }

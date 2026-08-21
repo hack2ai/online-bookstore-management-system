@@ -1,6 +1,63 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title th:text="${book.title + ' — Bookstore'}">Book — Bookstore</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"><style>body{background:#f7f7f4;color:#172033;font-family:Inter,system-ui,sans-serif}.navbar{background:#fff;border-bottom:1px solid #ecebe7}.brand{font-weight:800;letter-spacing:-.04em}.panel{background:#fff;border:1px solid #e8e6e1;border-radius:24px}.cover{min-height:500px;border-radius:20px;background:linear-gradient(145deg,#e8e1d8,#c8d2df);display:flex;align-items:center;justify-content:center}.cover i{font-size:8rem;opacity:.35}.price{font-size:2rem;font-weight:800}.muted{color:#6b7280}.accent{background:#e07a5f;color:#fff;border:0}.accent:hover{background:#ca654d;color:#fff}.review{border-top:1px solid #ecebe7}.stars{letter-spacing:1px}</style></head>
-<body><nav class="navbar"><div class="container py-3"><a class="navbar-brand brand" href="/">BOOKSTORE<span style="color:#e07a5f">.</span></a><div class="d-flex gap-2"><a class="btn btn-sm btn-outline-dark rounded-pill" href="/books">Books</a><a class="btn btn-sm btn-outline-dark rounded-pill" href="/cart"><i class="bi bi-bag"></i> Cart</a><a class="btn btn-sm btn-outline-dark rounded-pill" href="/wishlist">Wishlist</a></div></div></nav>
-<main class="container py-5"><div class="panel p-3 p-lg-5"><div class="row g-5 align-items-center"><div class="col-lg-5"><div class="cover"><i class="bi bi-book-half"></i></div></div><div class="col-lg-7"><span class="badge rounded-pill text-bg-light mb-3" th:text="${book.categoryName ?: 'Book'}">Category</span><h1 class="display-5 fw-bold" th:text="${book.title}">Book title</h1><p class="lead muted mb-1" th:text="${'by ' + book.author}">by Author</p><p class="small muted" th:text="${'ISBN: ' + book.isbn}">ISBN</p><div class="d-flex align-items-center gap-2 my-3"><span class="stars text-warning" th:text="${'★'.repeat(T(java.lang.Math).round(averageRating))}">★★★★★</span><strong th:text="${#numbers.formatDecimal(averageRating,1,1)}">0.0</strong><span class="muted" th:text="${'(' + reviewCount + ' reviews)'}">(0 reviews)</span></div><div class="price my-4" th:text="${'₹' + book.price}">₹0</div><p class="muted" th:text="${book.description ?: 'A great addition to your reading list.'}">Description</p><div class="d-flex gap-2 align-items-center my-4"><span class="badge rounded-pill" th:classappend="${book.inStock ? 'text-bg-success' : 'text-bg-secondary'}" th:text="${book.inStock ? 'In stock' : 'Out of stock'}">In stock</span><span class="small muted" th:text="${book.inStock ? book.stock + ' available' : 'Currently unavailable'}">Available</span></div><form th:if="${book.inStock}" action="/cart/items" method="post" class="d-flex gap-2"><input type="hidden" name="bookId" th:value="${book.id}"><input type="number" name="quantity" value="1" min="1" max="100" class="form-control rounded-pill" style="max-width:110px"><button class="btn accent rounded-pill px-4" type="submit"><i class="bi bi-bag-plus me-1"></i> Add to cart</button></form><button class="btn btn-secondary rounded-pill px-4" disabled th:unless="${book.inStock}">Out of stock</button></div></div></div></div>
-<section class="mt-4"><div class="panel p-4 p-lg-5"><div class="d-flex justify-content-between align-items-center mb-3"><div><div class="muted small text-uppercase fw-bold">Community</div><h2 class="fw-bold mb-0">Customer reviews</h2></div><span class="badge rounded-pill text-bg-light" th:text="${reviewCount + ' reviews'}">0 reviews</span></div><div th:if="${reviews.empty}" class="py-4 text-center muted">No reviews yet. Be the first to share your experience.</div><div th:each="review : ${reviews}" class="review py-4"><div class="d-flex justify-content-between gap-3"><div><strong th:text="${review.customerName}">Customer</strong><div class="stars text-warning mt-1" th:text="${'★'.repeat(review.rating)}">★★★★★</div></div><small class="muted" th:text="${#temporals.format(review.createdAt,'dd MMM yyyy')}">Date</small></div><p class="mt-3 mb-0" th:if="${review.comment != null && !review.comment.isBlank()}" th:text="${review.comment}">Review</p></div></div></section></main></body></html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title th:text="${book.title + ' — Bookstore'}">Book — Bookstore</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+body{background:#f7f7f4;color:#172033;font-family:Inter,system-ui,sans-serif}.navbar{background:#fff;border-bottom:1px solid #ecebe7}.brand{font-weight:800;letter-spacing:-.04em}.panel{background:#fff;border:1px solid #e8e6e1;border-radius:24px}.cover{min-height:500px;border-radius:20px;background:linear-gradient(145deg,#e8e1d8,#c8d2df);display:flex;align-items:center;justify-content:center}.cover i{font-size:8rem;opacity:.35}.price{font-size:2rem;font-weight:800}.muted{color:#6b7280}.accent{background:#e07a5f;color:#fff;border:0}.accent:hover{background:#ca654d;color:#fff}.review-card{border:1px solid #e8e6e1;border-radius:18px;background:#fff}.stars{letter-spacing:.08em;color:#e07a5f}.review-empty{border:1px dashed #d8d5cf;border-radius:18px}.review-section{margin-top:1.5rem}
+</style>
+</head>
+<body>
+<nav class="navbar"><div class="container py-3 d-flex justify-content-between align-items-center"><a class="navbar-brand brand" href="/">BOOKSTORE<span style="color:#e07a5f">.</span></a><div class="d-flex gap-2"><a class="btn btn-sm btn-outline-dark rounded-pill" href="/books">Books</a><a class="btn btn-sm btn-outline-dark rounded-pill" href="/cart"><i class="bi bi-bag"></i> Cart</a><a sec:authorize="hasRole('CUSTOMER')" class="btn btn-sm btn-outline-dark rounded-pill" href="/account">Account</a><a sec:authorize="isAnonymous()" class="btn btn-sm btn-accent rounded-pill" href="/login">Sign in</a></div></div></nav>
+<main class="container py-5">
+<div class="panel p-3 p-lg-5">
+<div class="row g-5 align-items-center">
+<div class="col-lg-5"><div class="cover"><i class="bi bi-book-half"></i></div></div>
+<div class="col-lg-7">
+<span class="badge rounded-pill text-bg-light mb-3" th:text="${book.categoryName ?: 'Book'}">Category</span>
+<h1 class="display-5 fw-bold" th:text="${book.title}">Book title</h1>
+<p class="lead muted mb-1" th:text="${'by ' + book.author}">by Author</p>
+<p class="small muted" th:text="${'ISBN: ' + book.isbn}">ISBN</p>
+<div class="price my-4" th:text="${'₹' + book.price}">₹0</div>
+<p class="muted" th:text="${book.description ?: 'A great addition to your reading list.'}">Description</p>
+<div class="d-flex gap-2 align-items-center my-4"><span class="badge rounded-pill" th:classappend="${book.inStock ? 'text-bg-success' : 'text-bg-secondary'}" th:text="${book.inStock ? 'In stock' : 'Out of stock'}">In stock</span><span class="small muted" th:text="${book.inStock ? book.stock + ' available' : 'Currently unavailable'}">Available</span></div>
+<div class="d-flex flex-wrap gap-2 align-items-center">
+<form th:if="${book.inStock}" action="/cart/items" method="post" class="d-flex gap-2"><input type="hidden" name="_csrf" th:value="${_csrf.token}"><input type="hidden" name="bookId" th:value="${book.id}"><input type="number" name="quantity" value="1" min="1" max="100" class="form-control rounded-pill" style="max-width:110px"><button class="btn accent rounded-pill px-4" type="submit"><i class="bi bi-bag-plus me-1"></i> Add to cart</button></form>
+<button class="btn btn-secondary rounded-pill px-4" disabled th:unless="${book.inStock}">Out of stock</button>
+<form sec:authorize="hasRole('CUSTOMER')" method="post" th:action="@{'/wishlist/' + ${book.id}}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="btn btn-outline-danger rounded-pill px-4" type="submit"><i class="bi bi-heart me-1"></i> Save to wishlist</button></form>
+<a sec:authorize="hasRole('CUSTOMER')" class="btn btn-link text-decoration-none" href="/wishlist">View wishlist</a>
+</div>
+</div></div>
+<div class="review-section">
+<div class="row g-4">
+<div class="col-lg-7">
+<div class="d-flex justify-content-between align-items-end mb-3"><div><div class="text-uppercase small fw-bold muted">Customer feedback</div><h2 class="h3 fw-bold mb-1">Reviews</h2><div class="muted">What verified customers think about this book.</div></div><div class="text-end"><div id="ratingStars" class="stars fs-4">★★★★★</div><div id="ratingSummary" class="small muted">Loading ratings...</div></div></div>
+<div id="reviewList" class="d-flex flex-column gap-3"><div class="review-empty p-4 text-center muted">Loading reviews...</div></div>
+</div>
+<div class="col-lg-5">
+<div class="card border-0 shadow-sm rounded-4 p-4">
+<div class="text-uppercase small fw-bold muted">Write a review</div><h3 class="h4 fw-bold mt-2">Share your experience</h3><p class="small muted">Only customers who successfully purchased this book can submit a review.</p>
+<form id="reviewForm" class="mt-3"><div class="mb-3"><label class="form-label fw-semibold" for="rating">Rating</label><select id="rating" class="form-select rounded-3" required><option value="5">5 — Excellent</option><option value="4">4 — Great</option><option value="3">3 — Good</option><option value="2">2 — Fair</option><option value="1">1 — Poor</option></select></div><div class="mb-3"><label class="form-label fw-semibold" for="comment">Comment</label><textarea id="comment" class="form-control rounded-3" rows="5" maxlength="1000" placeholder="What did you like about this book?" required></textarea></div><div id="reviewMessage" class="small mb-3"></div><button class="btn accent rounded-pill px-4" type="submit">Publish review</button></form>
+</div></div>
+</div></div>
+</div></div>
+</main>
+<script th:inline="javascript">
+const bookId = /*[[${book.id}]]*/ 0;
+const csrfToken = /*[[${_csrf.token}]]*/ '';
+const csrfHeader = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+const reviewList = document.getElementById('reviewList');
+const reviewSummary = document.getElementById('ratingSummary');
+const ratingStars = document.getElementById('ratingStars');
+const reviewMessage = document.getElementById('reviewMessage');
+function renderStars(rating){const rounded=Math.max(0,Math.min(5,Math.round(rating||0)));return '★'.repeat(rounded)+'☆'.repeat(5-rounded);}
+function escapeHtml(value){const div=document.createElement('div');div.textContent=value;return div.innerHTML;}
+function formatDate(value){if(!value)return '';const date=new Date(value);return Number.isNaN(date.getTime())?value:date.toLocaleDateString();}
+async function loadReviews(){try{const [reviewsRes,summaryRes]=await Promise.all([fetch(`/api/books/${bookId}/reviews`),fetch(`/api/books/${bookId}/reviews/summary`)]);if(!reviewsRes.ok||!summaryRes.ok)throw new Error('Unable to load reviews');const reviewsBody=await reviewsRes.json();const summaryBody=await summaryRes.json();const reviews=reviewsBody.data||[];const summary=summaryBody.data||{};const average=Number(summary.averageRating||0);reviewSummary.textContent=`${average.toFixed(1)} / 5 · ${summary.reviewCount||0} review${Number(summary.reviewCount||0)===1?'':'s'}`;ratingStars.textContent=renderStars(average);if(!reviews.length){reviewList.innerHTML='<div class="review-empty p-4 text-center muted">No reviews yet. Be the first verified customer to share your experience.</div>';return;}reviewList.innerHTML=reviews.map(review=>`<article class="review-card p-4"><div class="d-flex justify-content-between gap-3"><div><div class="fw-bold">${escapeHtml(review.customerName||'Customer')}</div><div class="small muted">${formatDate(review.createdAt)}</div></div><div class="stars" aria-label="${review.rating} out of 5">${renderStars(Number(review.rating))}</div></div><p class="mb-0 mt-3">${escapeHtml(review.comment||'')}</p></article>`).join('');}catch(error){reviewList.innerHTML='<div class="review-empty p-4 text-center text-danger">Reviews are temporarily unavailable.</div>';reviewSummary.textContent='Unable to load ratings';}}
+document.getElementById('reviewForm').addEventListener('submit',async event=>{event.preventDefault();reviewMessage.textContent='Publishing...';reviewMessage.className='small mb-3 text-secondary';try{const response=await fetch(`/api/books/${bookId}/reviews`,{method:'POST',headers:{'Content-Type':'application/json',[csrfHeader]:csrfToken},body:JSON.stringify({rating:Number(document.getElementById('rating').value),comment:document.getElementById('comment').value.trim()})});const body=await response.json();if(!response.ok)throw new Error(body.message||'Unable to publish review');reviewMessage.textContent='Review published successfully.';reviewMessage.className='small mb-3 text-success';document.getElementById('comment').value='';await loadReviews();}catch(error){reviewMessage.textContent=error.message||'Unable to publish review.';reviewMessage.className='small mb-3 text-danger';}});
+loadReviews();
+</script>
+</body>
+</html>

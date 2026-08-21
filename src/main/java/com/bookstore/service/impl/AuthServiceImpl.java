@@ -1,17 +1,22 @@
 package com.bookstore.service.impl;
 
 import com.bookstore.dto.request.LoginRequest;
+import com.bookstore.dto.request.RefreshTokenRequest;
 import com.bookstore.dto.request.RegisterRequest;
 import com.bookstore.dto.response.AuthResponse;
+import com.bookstore.entity.RefreshToken;
 import com.bookstore.entity.Role;
 import com.bookstore.entity.User;
+import com.bookstore.exception.BadRequestException;
 import com.bookstore.exception.DuplicateResourceException;
+import com.bookstore.repository.RefreshTokenRepository;
 import com.bookstore.repository.UserRepository;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.security.JwtUtil;
 import com.bookstore.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,46 +24,97 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Locale;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
 
-    // -------------------------------------------------------------------------
-    // Register
-    // -------------------------------------------------------------------------
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.jwt.refresh-expiration-ms:604800000}")
+    private long refreshExpirationMs;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-
-        // Fast path duplicate check — friendly error before we hit the DB constraint
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException(
-                    "An account with email '" + request.getEmail() + "' already exists.");
+        String email = normalizeEmail(request.getEmail());
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateResourceException("An account with this email already exists.");
         }
 
         User user = User.builder()
-                .name(request.getName())
-                .email(request.getEmail().toLowerCase().trim())
+                .name(request.getName().trim())
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.CUSTOMER)          // new registrations are always CUSTOMER
-                .phone(request.getPhone())
-                .address(request.getAddress())
+                .role(Role.CUSTOMER)
+                .phone(normalizeOptional(request.getPhone()))
+                .address(normalizeOptional(request.getAddress()))
                 .build();
 
         user = userRepository.save(user);
-        log.info("New customer registered: {} (id={})", user.getEmail(), user.getId());
+        log.info("New customer registered: id={}", user.getId());
+        return createAuthResponse(user);
+    }
 
-        String token = jwtUtil.generateToken(new CustomUserDetails(user));
+    @Override
+    @Transactional
+    public AuthResponse login(LoginRequest request) {
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        normalizeEmail(request.getEmail()), request.getPassword()));
+
+        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+        User user = userDetails.getUser();
+        log.info("User logged in: id={}, role={}", user.getId(), user.getRole());
+        return createAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        String rawToken = request.getRefreshToken().trim();
+        RefreshToken stored = refreshTokenRepository
+                .findByTokenHashAndRevokedAtIsNull(hashToken(rawToken))
+                .orElseThrow(() -> new BadRequestException("Invalid or revoked refresh token."));
+
+        if (stored.isExpired()) {
+            stored.revoke();
+            throw new BadRequestException("Refresh token has expired. Please log in again.");
+        }
+
+        stored.revoke();
+        return createAuthResponse(stored.getUser());
+    }
+
+    @Override
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenRepository
+                .findByTokenHashAndRevokedAtIsNull(hashToken(request.getRefreshToken().trim()))
+                .ifPresent(RefreshToken::revoke);
+    }
+
+    private AuthResponse createAuthResponse(User user) {
+        String accessToken = jwtUtil.generateToken(new CustomUserDetails(user));
+        String refreshToken = createRefreshToken(user);
 
         return AuthResponse.builder()
-                .token(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
@@ -66,36 +122,38 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    // -------------------------------------------------------------------------
-    // Login
-    // -------------------------------------------------------------------------
+    private String createRefreshToken(User user) {
+        byte[] bytes = new byte[48];
+        secureRandom.nextBytes(bytes);
+        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 
-    @Override
-    public AuthResponse login(LoginRequest request) {
-
-        // Delegates to DaoAuthenticationProvider → CustomUserDetailsService →
-        // PasswordEncoder.matches(). Throws BadCredentialsException automatically
-        // if email not found OR password doesn't match — same error either way,
-        // so the response doesn't leak which half was wrong.
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail().toLowerCase().trim(),
-                        request.getPassword()
-                )
-        );
-
-        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
-        String token = jwtUtil.generateToken(userDetails);
-
-        log.info("User logged in: {} (role={})",
-                userDetails.getUsername(), userDetails.getUser().getRole());
-
-        return AuthResponse.builder()
-                .token(token)
-                .userId(userDetails.getUserId())
-                .name(userDetails.getUser().getName())
-                .email(userDetails.getUsername())
-                .role(userDetails.getUser().getRole())
+        RefreshToken entity = RefreshToken.builder()
+                .user(user)
+                .tokenHash(hashToken(rawToken))
+                .expiresAt(LocalDateTime.now().plusNanos(refreshExpirationMs * 1_000_000L))
                 .build();
+
+        refreshTokenRepository.save(entity);
+        return rawToken;
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String hashToken(String token) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
     }
 }

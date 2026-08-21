@@ -26,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.Authentication;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,7 +90,7 @@ class AuthServiceImplTest {
     void refreshRevokesOldTokenAndIssuesReplacement() {
         RefreshToken stored = RefreshToken.builder()
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
-        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(java.util.Optional.of(stored));
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
         when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -97,14 +98,14 @@ class AuthServiceImplTest {
 
         assertThat(stored.isRevoked()).isTrue();
         assertThat(response.getAccessToken()).isEqualTo("access");
-        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
     }
 
     @Test
     void expiredRefreshTokenIsRejectedAndRevoked() {
         RefreshToken stored = RefreshToken.builder()
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().minusMinutes(1)).build();
-        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(java.util.Optional.of(stored));
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
 
         assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh")))
                 .isInstanceOf(BadRequestException.class)
@@ -116,7 +117,7 @@ class AuthServiceImplTest {
     void logoutRevokesActiveRefreshToken() {
         RefreshToken stored = RefreshToken.builder()
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
-        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(java.util.Optional.of(stored));
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
 
         service.logout(new RefreshTokenRequest("raw-refresh"));
 

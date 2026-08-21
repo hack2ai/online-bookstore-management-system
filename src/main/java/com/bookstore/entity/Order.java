@@ -2,12 +2,7 @@ package com.bookstore.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -15,31 +10,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A placed order, owned by exactly one {@link User} and made up of one or
- * more {@link OrderItem}s.
- *
- * <p>{@code totalAmount} is computed once at order-placement time
- * ({@code OrderServiceImpl#placeOrder}) from the cart contents and persisted
- * here — it is intentionally NOT recomputed on the fly from
- * {@code orderItems} each time the order is read, because that would let a
- * later change to {@code OrderItem.price} (there isn't one — it's never
- * updated after creation) or a bug silently change a customer's historical
- * total. Treat this column as the authoritative, frozen amount the customer
- * was actually charged.
- */
 @Entity
 @Table(name = "orders")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@ToString(exclude = {"user", "orderItems"})
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@ToString(exclude = {"user", "orderItems", "payment"})
 public class Order {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -47,8 +23,24 @@ public class Order {
     private User user;
 
     @NotNull
+    @Column(name = "subtotal_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal subtotalAmount;
+
+    @NotNull
+    @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "coupon_code", length = 40)
+    private String couponCode;
+
+    @NotNull
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
+
+    @NotNull
+    @Column(name = "shipping_address", nullable = false, length = 500)
+    private String shippingAddress;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

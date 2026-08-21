@@ -3,8 +3,6 @@ package com.bookstore.service.impl;
 import com.bookstore.dto.request.ReviewRequest;
 import com.bookstore.dto.response.ReviewResponse;
 import com.bookstore.entity.Book;
-import com.bookstore.entity.Order;
-import com.bookstore.entity.PaymentStatus;
 import com.bookstore.entity.Review;
 import com.bookstore.entity.User;
 import com.bookstore.exception.ResourceNotFoundException;
@@ -48,11 +46,7 @@ public class ReviewServiceImpl implements ReviewService {
         if (reviewRepository.existsByUserIdAndBookId(userId, bookId)) {
             throw new IllegalStateException("You have already reviewed this book.");
         }
-        boolean purchased = orderRepository.findByUserId(userId, PageableUtils.unpaged()).stream()
-                .flatMap(order -> order.getOrderItems().stream())
-                .anyMatch(item -> item.getBook().getId().equals(bookId)
-                        && orderHasSuccessfulPayment(order));
-        if (!purchased) {
+        if (!orderRepository.hasSuccessfulPurchaseOfBook(userId, bookId)) {
             throw new IllegalStateException("Only customers who purchased this book can review it.");
         }
         User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -68,17 +62,8 @@ public class ReviewServiceImpl implements ReviewService {
         reviewRepository.delete(review);
     }
 
-    private boolean orderHasSuccessfulPayment(Order order) {
-        return order.getPayment() != null && order.getPayment().getPaymentStatus() == PaymentStatus.SUCCESS;
-    }
-
     private ReviewResponse toResponse(Review r) {
         return ReviewResponse.builder().id(r.getId()).bookId(r.getBook().getId()).customerName(r.getUser().getName())
                 .rating(r.getRating()).comment(r.getComment()).createdAt(r.getCreatedAt()).build();
-    }
-
-    private static final class PageableUtils {
-        private PageableUtils() {}
-        static org.springframework.data.domain.Pageable unpaged() { return org.springframework.data.domain.Pageable.unpaged(); }
     }
 }
