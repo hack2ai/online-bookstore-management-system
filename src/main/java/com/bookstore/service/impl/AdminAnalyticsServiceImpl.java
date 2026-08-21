@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -30,8 +32,40 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
 
     @Override
     public AdminAnalyticsResponse getAnalytics() {
-        BigDecimal revenue = paymentRepository.sumOrderAmountsByStatus(PaymentStatus.SUCCESS);
-        long paidOrders = paymentRepository.countByPaymentStatus(PaymentStatus.SUCCESS);
+        return build(null, null);
+    }
+
+    @Override
+    public AdminAnalyticsResponse getAnalytics(LocalDate from, LocalDate to) {
+        if (from == null && to == null) return build(null, null);
+        LocalDate safeFrom = from == null ? to : from;
+        LocalDate safeTo = to == null ? from : to;
+        if (safeFrom.isAfter(safeTo)) {
+            LocalDate swap = safeFrom;
+            safeFrom = safeTo;
+            safeTo = swap;
+        }
+        return build(safeFrom.atStartOfDay(), safeTo.plusDays(1).atStartOfDay());
+    }
+
+    private AdminAnalyticsResponse build(LocalDateTime from, LocalDateTime to) {
+        BigDecimal revenue;
+        long paidOrders;
+        long pendingOrders;
+        long cancelledOrders;
+
+        if (from == null) {
+            revenue = paymentRepository.sumOrderAmountsByStatus(PaymentStatus.SUCCESS);
+            paidOrders = paymentRepository.countByPaymentStatus(PaymentStatus.SUCCESS);
+            pendingOrders = orderRepository.countByStatus(OrderStatus.PENDING);
+            cancelledOrders = orderRepository.countByStatus(OrderStatus.CANCELLED);
+        } else {
+            revenue = orderRepository.sumPaidAmountBetween(from, to);
+            paidOrders = orderRepository.countPaidOrdersBetween(from, to);
+            pendingOrders = orderRepository.countByStatusAndOrderDateGreaterThanEqualAndOrderDateLessThan(OrderStatus.PENDING, from, to);
+            cancelledOrders = orderRepository.countByStatusAndOrderDateGreaterThanEqualAndOrderDateLessThan(OrderStatus.CANCELLED, from, to);
+        }
+
         BigDecimal average = paidOrders == 0
                 ? BigDecimal.ZERO
                 : revenue.divide(BigDecimal.valueOf(paidOrders), 2, RoundingMode.HALF_UP);
@@ -54,8 +88,8 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                 .paidRevenue(revenue)
                 .paidOrders(paidOrders)
                 .averageOrderValue(average)
-                .pendingOrders(orderRepository.countByStatus(OrderStatus.PENDING))
-                .cancelledOrders(orderRepository.countByStatus(OrderStatus.CANCELLED))
+                .pendingOrders(pendingOrders)
+                .cancelledOrders(cancelledOrders)
                 .lowStockBooks(bookRepository.countByStockLessThanEqual(5))
                 .bestSellingBooks(bestSelling)
                 .build();
