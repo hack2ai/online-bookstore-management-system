@@ -40,8 +40,9 @@
             </form>
             <div class="d-flex gap-2 align-items-center">
                 <a class="btn btn-sm btn-outline-dark rounded-pill" href="/api-docs">API Docs</a>
+                <a sec:authorize="hasRole('CUSTOMER')" class="btn btn-sm btn-outline-dark rounded-pill" href="/account"><i class="bi bi-person-circle me-1"></i> My Account</a>
+                <a sec:authorize="isAnonymous()" class="btn btn-sm btn-accent rounded-pill px-3" href="/login"><i class="bi bi-person me-1"></i> Sign in</a>
                 <a sec:authorize="hasRole('ADMIN')" class="btn btn-sm btn-dark rounded-pill px-3" href="/admin"><i class="bi bi-speedometer2 me-1"></i> Admin Dashboard</a>
-                <a class="btn btn-sm btn-accent rounded-pill px-3" href="/login"><i class="bi bi-person me-1"></i> Account</a>
             </div>
         </div>
     </div>
