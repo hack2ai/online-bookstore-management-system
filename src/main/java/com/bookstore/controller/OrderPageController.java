@@ -12,7 +12,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/orders")
@@ -34,6 +36,15 @@ public class OrderPageController {
     public String order(@PathVariable Long id, Authentication authentication, Model model) {
         model.addAttribute("order", orderService.getMyOrder(userId(authentication), id));
         return "order-details";
+    }
+
+    @PostMapping("/{id}/cancel")
+    public String cancel(@PathVariable Long id,
+                         Authentication authentication,
+                         RedirectAttributes redirectAttributes) {
+        orderService.cancelOrder(userId(authentication), id);
+        redirectAttributes.addFlashAttribute("success", "Order cancelled successfully.");
+        return "redirect:/orders/" + id;
     }
 
     private Long userId(Authentication authentication) {
