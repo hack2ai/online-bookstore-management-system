@@ -79,10 +79,13 @@ public class SecurityConfig {
                 .requestMatchers("/books", "/books/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**").permitAll()
+                .requestMatchers("/error/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/cart/**", "/orders/**", "/profile/**").hasRole("CUSTOMER")
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(exception -> exception
+                .accessDeniedPage("/error/403"))
             .formLogin(form -> form
                 .loginPage("/auth/login")
                 .loginProcessingUrl("/auth/login")
