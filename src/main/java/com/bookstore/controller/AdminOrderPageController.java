@@ -35,10 +35,17 @@ public class AdminOrderPageController {
         return "admin/orders";
     }
 
+    @GetMapping("/{id}")
+    public String order(@PathVariable Long id, Model model) {
+        model.addAttribute("order", orderService.getOrder(id));
+        model.addAttribute("statuses", OrderStatus.values());
+        return "admin/order-detail";
+    }
+
     @PostMapping("/{id}/status")
     public String updateStatus(@PathVariable Long id,
                                @RequestParam OrderStatus status) {
         orderService.updateStatus(id, status);
-        return "redirect:/admin/orders";
+        return "redirect:/admin/orders/" + id;
     }
 }
