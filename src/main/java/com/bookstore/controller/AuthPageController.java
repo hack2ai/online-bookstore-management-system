@@ -17,6 +17,11 @@ public class AuthPageController {
 
     private final AuthService authService;
 
+    @GetMapping("/login")
+    public String legacyLogin() {
+        return "redirect:/auth/login";
+    }
+
     @GetMapping("/auth/login")
     public String login() {
         return "auth/login";
