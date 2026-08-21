@@ -8,7 +8,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RequestIdFilterTest {
@@ -49,6 +48,6 @@ class RequestIdFilterTest {
 
         String requestId = response.getHeader(RequestIdFilter.HEADER_NAME);
         assertNotNull(requestId);
-        assertNull(requestId.contains("\r") || requestId.contains("\n") ? requestId : null);
+        assertTrue(requestId.matches("[0-9a-fA-F-]{36}"));
     }
 }
