@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -11,9 +12,9 @@ import java.io.IOException;
 import java.util.UUID;
 
 /**
- * Adds a stable correlation identifier to every HTTP response.
+ * Adds a stable correlation identifier to every HTTP response and logging context.
  *
- * If a caller supplies a valid request id, it is echoed back; otherwise a
+ * If a caller supplies a safe request id, it is echoed back; otherwise a
  * server-generated UUID is used. The identifier can be propagated through
  * application logs and support tickets to trace a request end-to-end.
  */
@@ -35,7 +36,12 @@ public class RequestIdFilter extends OncePerRequestFilter {
         }
 
         response.setHeader(HEADER_NAME, requestId);
-        filterChain.doFilter(request, response);
+        MDC.put(HEADER_NAME, requestId);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            MDC.remove(HEADER_NAME);
+        }
     }
 
     private String normalize(String value) {
