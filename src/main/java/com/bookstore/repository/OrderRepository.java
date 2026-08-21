@@ -19,6 +19,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("select coalesce(sum(o.totalAmount), 0) from Order o join o.payment p where o.user.id = :userId and p.paymentStatus = com.bookstore.entity.PaymentStatus.SUCCESS")
     BigDecimal sumPaidAmountByUserId(@Param("userId") Long userId);
 
+    @Query("select coalesce(sum(o.totalAmount), 0) from Order o join o.payment p where p.paymentStatus = com.bookstore.entity.PaymentStatus.SUCCESS")
+    BigDecimal sumAllPaidAmount();
+
     @Query("select count(o) > 0 from Order o join o.orderItems i join o.payment p where o.user.id = :userId and i.book.id = :bookId and p.paymentStatus = com.bookstore.entity.PaymentStatus.SUCCESS")
     boolean hasSuccessfulPurchaseOfBook(@Param("userId") Long userId, @Param("bookId") Long bookId);
 }
