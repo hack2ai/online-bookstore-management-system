@@ -28,12 +28,16 @@ public class PaymentPageController {
     @Value("${razorpay.key-id}")
     private String razorpayKeyId;
 
+    @Value("${payment.mode:RAZORPAY}")
+    private String paymentMode;
+
     @GetMapping("/orders/{orderId}/payment")
     public String payment(@PathVariable Long orderId, Authentication authentication, Model model) {
         Long userId = currentUserId(authentication);
         OrderResponse order = orderService.getMyOrder(userId, orderId);
         model.addAttribute("order", order);
         model.addAttribute("razorpayKeyId", razorpayKeyId);
+        model.addAttribute("paymentMode", paymentMode.toUpperCase());
         return "payment";
     }
 
