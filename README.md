@@ -2,16 +2,16 @@
 
 A production-oriented full-stack bookstore platform built with Java 21 and Spring Boot. Customers can browse the catalog, manage carts, use wishlists, review purchased books, apply coupons, checkout, place orders and pay through Razorpay; administrators manage the catalog, inventory, customers, orders and analytics.
 
-> **Status: 🚧 Professionalization in progress**
+> **Release: v1.0.0 — Professional Bookstore Platform**
 >
-> Active development happens on `feature/professional-bookstore-platform`; `main` is kept stable.
+> The `feature/professional-bookstore-platform` line has completed its professionalization pass. `main` remains the stable integration branch.
 
 ## Tech Stack
 
 - **Backend:** Java 21 · Spring Boot 3.3.4 · Spring Security · Spring Data JPA / Hibernate
-- **Security:** JWT access tokens · rotating persisted refresh tokens · BCrypt · RBAC
+- **Security:** JWT authentication · rotating persisted refresh tokens · BCrypt · RBAC
 - **Frontend:** Thymeleaf · Bootstrap 5
-- **Database:** MySQL 8
+- **Database:** MySQL 8 · Flyway migrations
 - **Payments:** Razorpay
 - **API docs:** springdoc OpenAPI / Swagger UI
 - **Build:** Maven
@@ -28,6 +28,7 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - Method-level authorization
 - Stateless API security
 - Customer/admin ownership boundaries for carts, orders and reviews
+- Customer profile editing and password change flow
 
 ### Catalog
 - Book CRUD for administrators
@@ -88,6 +89,16 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - Inventory monitoring and low-stock visibility
 - Customer management with order/spending aggregates
 - Order status operations
+
+### Platform hardening
+- Flyway-managed database migrations
+- Hibernate schema validation
+- Custom 403 / 404 / 500 error pages
+- Docker healthchecks and MySQL startup dependency
+- Actuator health endpoint
+- Production profile with environment-based secrets
+- `.env.example` configuration template
+- GitHub Actions CI for tests, packaging and Docker builds
 
 ## API Overview
 
@@ -160,6 +171,14 @@ src/main/java/com/bookstore
 - MySQL 8 for normal development
 - Docker + Docker Compose for containerized development
 
+### Environment setup
+
+Copy `.env.example` to `.env` and replace placeholders with your local values. `.env` is intentionally ignored by Git; never commit real credentials, API keys or JWT secrets.
+
+```bash
+copy .env.example .env
+```
+
 ### Development
 
 The default profile is `dev` and reads database/payment/JWT values from environment variables with local development fallbacks.
@@ -181,7 +200,7 @@ The test profile uses H2 and does not require a running MySQL instance:
 mvn test
 ```
 
-The test suite covers authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
+The current automated suite contains 30 tests covering authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
 
 ### Docker Compose
 
@@ -189,7 +208,7 @@ The test suite covers authentication, role separation, carts, checkout, coupons,
 docker compose up --build
 ```
 
-Compose starts MySQL and the bookstore application with a healthcheck dependency. For production, provide secrets through the environment rather than committing them to the repository.
+Compose starts MySQL and the bookstore application with healthcheck-based startup ordering. The application exposes `/actuator/health` for container/runtime verification.
 
 ## Production
 
@@ -199,13 +218,29 @@ Use the `prod` profile:
 SPRING_PROFILES_ACTIVE=prod mvn spring-boot:run
 ```
 
-Production requires environment variables for database credentials, JWT secret and Razorpay credentials. The production profile disables automatic `schema.sql` initialization; database schema changes should be managed through a real migration process before production deployment.
+Production requires environment variables for database credentials, JWT secret and Razorpay credentials. Database schema changes are managed through Flyway migrations, while Hibernate runs in validation mode.
 
 Never commit real credentials, API keys or JWT secrets.
 
 ## CI
 
-GitHub Actions runs the Maven test suite and packages the application artifact on pushes and pull requests. A real deployment should add environment-specific secrets and an explicit deployment job after CI is consistently green.
+GitHub Actions runs the Maven test suite, packages the application artifact, verifies `target/bookstore.jar`, and builds the Docker image on pushes and pull requests.
+
+## Release
+
+### v1.0.0 — Professional Bookstore Platform
+
+- Completed customer and admin authentication flows with role separation.
+- Added customer account, profile and password-management pages.
+- Added wishlist management and verified-review flow.
+- Completed cart, checkout, orders, cancellation and Razorpay payment flows.
+- Added admin catalog, inventory, customers, orders and analytics dashboards.
+- Added custom 403 / 404 / 500 error handling.
+- Migrated database ownership to Flyway with a baseline migration and Hibernate validation.
+- Added Docker healthchecks and production startup ordering.
+- Added production configuration and safe `.env.example` secret templates.
+- Verified 30 automated tests with zero failures or errors.
+- Verified GitHub Actions CI and Docker image builds.
 
 ## Engineering Principles
 
