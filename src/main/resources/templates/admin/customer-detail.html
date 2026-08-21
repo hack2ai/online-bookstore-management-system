@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title th:text="${customer.name + ' — Customer'}">Customer — Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body style="background:#f5f6f8;color:#172033">
+<nav class="navbar bg-dark navbar-dark">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/admin">BOOKSTORE ADMIN</a>
+        <div class="d-flex gap-2">
+            <a href="/admin/customers" class="btn btn-sm btn-outline-light rounded-pill">Customers</a>
+            <a href="/" class="btn btn-sm btn-outline-light rounded-pill">Storefront</a>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="text-secondary small text-uppercase fw-bold">Customer profile</div>
+            <h1 class="fw-bold mb-0" th:text="${customer.name}">Customer</h1>
+            <div class="text-secondary mt-1" th:text="${customer.email}">email</div>
+        </div>
+        <a href="/admin/customers" class="btn btn-outline-dark rounded-pill">Back to customers</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 h-100 p-3"><div class="text-secondary small">Phone</div><div class="fw-semibold mt-2" th:text="${customer.phone ?: '—'}">—</div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 h-100 p-3"><div class="text-secondary small">Joined</div><div class="fw-semibold mt-2" th:text="${customer.createdAt}">Date</div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 h-100 p-3"><div class="text-secondary small">Orders</div><div class="display-6 fw-bold mt-1" th:text="${customer.orderCount}">0</div></div></div>
+        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 h-100 p-3"><div class="text-secondary small">Total spent</div><div class="display-6 fw-bold mt-1" th:text="${'₹' + customer.totalSpent}">₹0</div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="p-4 border-bottom">
+            <div class="text-secondary small text-uppercase fw-bold">Purchase history</div>
+            <h2 class="h4 fw-bold mb-0">Orders</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr><th>Order</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th><th class="text-end">Action</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="order : ${orders.content}">
+                    <td class="fw-semibold" th:text="${'#' + order.id}">#1</td>
+                    <td th:text="${order.orderDate}">Date</td>
+                    <td th:text="${order.items.size()}">1</td>
+                    <td th:text="${'₹' + order.totalAmount}">₹0</td>
+                    <td><span class="badge text-bg-light" th:text="${order.status}">PENDING</span></td>
+                    <td><span class="badge text-bg-light" th:text="${order.paymentStatus ?: 'UNPAID'}">UNPAID</span></td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-dark rounded-pill" th:href="@{/admin/orders/{id}(id=${order.id})}">View order</a></td>
+                </tr>
+                <tr th:if="${orders.content.empty}"><td colspan="7" class="text-center text-secondary py-5">No orders for this customer.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+</body>
+</html>
