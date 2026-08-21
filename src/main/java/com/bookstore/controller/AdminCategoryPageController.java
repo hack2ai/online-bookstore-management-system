@@ -4,6 +4,7 @@ import com.bookstore.dto.request.CategoryRequest;
 import com.bookstore.service.CategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @Controller
 @RequestMapping("/admin/categories")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminCategoryPageController {
     private final CategoryService categoryService;
 
@@ -35,7 +37,12 @@ public class AdminCategoryPageController {
     }
 
     @PostMapping("/{id}")
-    public String update(@PathVariable Long id, @Valid CategoryRequest request) {
+    public String update(@PathVariable Long id,
+                         @Valid CategoryRequest request,
+                         BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return "redirect:/admin/categories";
+        }
         categoryService.update(id, request);
         return "redirect:/admin/categories";
     }
