@@ -17,8 +17,58 @@
 <a href="/orders" class="btn btn-outline-dark rounded-pill px-4 w-100 py-3 mt-2">Back to orders</a>
 </div></div></div></main>
 <script th:inline="javascript">
-const razorpayKeyId=/*[[${razorpayKeyId}]]*/'';const razorpayOrderId=/*[[${payment.razorpayOrderId}]]*/'';const orderId=/*[[${order.id}]]*/0;const totalAmount=/*[[${order.totalAmount}]]*/0;const csrfToken=/*[[${_csrf.token}]]*/'';const errorBox=document.getElementById('paymentError');const readyBox=document.getElementById('paymentReady');const button=document.getElementById('payButton');
-function showError(message){errorBox.textContent=message||'Payment could not be completed. Please try again.';errorBox.classList.remove('d-none');}
-button.addEventListener('click',function(){errorBox.classList.add('d-none');if(!razorpayKeyId||!razorpayOrderId){showError('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET before taking payments.');return;}const options={key:razorpayKeyId,amount:Math.round(Number(totalAmount)*100),currency:'INR',name:'Bookstore',description:'Order #'+orderId,order_id:razorpayOrderId,handler:async function(response){button.disabled=true;try{const result=await fetch('/api/payments/orders/'+orderId+'/verify',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken},body:JSON.stringify({razorpayOrderId:response.razorpay_order_id,razorpayPaymentId:response.razorpay_payment_id,razorpaySignature:response.razorpay_signature})});const body=await result.json();if(!result.ok||!body.success)throw new Error(body.message||'Payment verification failed.');readyBox.classList.remove('d-none');setTimeout(()=>window.location.href='/orders/'+orderId,800);}catch(error){button.disabled=false;showError(error.message);}},modal:{ondismiss:function(){button.disabled=false}}};const razorpay=new Razorpay(options);razorpay.on('payment.failed',function(response){button.disabled=false;showError(response.error&&response.error.description?response.error.description:'Payment failed.');});razorpay.open();});
+const razorpayKeyId=/*[[${razorpayKeyId}]]*/'';
+const orderId=/*[[${order.id}]]*/0;
+const totalAmount=/*[[${order.totalAmount}]]*/0;
+const csrfToken=/*[[${_csrf.token}]]*/'';
+const csrfHeader=/*[[${_csrf.headerName}]]*/'X-CSRF-TOKEN';
+const errorBox=document.getElementById('paymentError');
+const readyBox=document.getElementById('paymentReady');
+const button=document.getElementById('payButton');
+
+function showError(message){
+    errorBox.textContent=message||'Payment could not be completed. Please try again.';
+    errorBox.classList.remove('d-none');
+}
+
+async function postJson(url, body){
+    const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',[csrfHeader]:csrfToken},body:body?JSON.stringify(body):undefined});
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok||payload.success===false) throw new Error(payload.message||'Request failed.');
+    return payload.data||payload;
+}
+
+button.addEventListener('click',async function(){
+    errorBox.classList.add('d-none');
+    if(!razorpayKeyId){showError('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET before taking payments.');return;}
+    button.disabled=true;
+    try{
+        const payment=await postJson('/orders/'+orderId+'/payment/create');
+        if(!payment.razorpayOrderId) throw new Error('Payment order was not created.');
+        const options={
+            key:razorpayKeyId,
+            amount:Math.round(Number(totalAmount)*100),
+            currency:'INR',
+            name:'Bookstore',
+            description:'Order #'+orderId,
+            order_id:payment.razorpayOrderId,
+            handler:async function(response){
+                try{
+                    await postJson('/orders/'+orderId+'/payment/verify',{
+                        razorpayOrderId:response.razorpay_order_id,
+                        razorpayPaymentId:response.razorpay_payment_id,
+                        razorpaySignature:response.razorpay_signature
+                    });
+                    readyBox.classList.remove('d-none');
+                    setTimeout(()=>window.location.href='/orders/'+orderId,800);
+                }catch(error){button.disabled=false;showError(error.message);}
+            },
+            modal:{ondismiss:function(){button.disabled=false}}
+        };
+        const razorpay=new Razorpay(options);
+        razorpay.on('payment.failed',function(response){button.disabled=false;showError(response.error&&response.error.description?response.error.description:'Payment failed.');});
+        razorpay.open();
+    }catch(error){button.disabled=false;showError(error.message);}
+});
 </script>
 </body></html>
