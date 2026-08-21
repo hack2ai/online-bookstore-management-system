@@ -76,7 +76,7 @@
                             <td th:text="${#temporals.format(order.orderDate,'dd MMM yyyy')}">21 Aug 2026</td>
                             <td th:text="${'₹' + order.totalAmount}">₹0</td>
                             <td><span class="status" th:text="${order.status}">PENDING</span></td>
-                            <td><a class="btn btn-sm btn-outline-dark rounded-pill" th:href="@{'/orders/' + ${order.id}}">View</a></td>
+                            <td><a class="btn btn-sm btn-outline-dark rounded-pill" th:href="@{/orders/{id}(id=${order.id})}">View</a></td>
                         </tr>
                         </tbody>
                     </table>
