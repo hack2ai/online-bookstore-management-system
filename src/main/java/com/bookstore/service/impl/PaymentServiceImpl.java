@@ -30,6 +30,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Value("${razorpay.key-secret}")
     private String keySecret;
 
+    @Value("${payment.mode:RAZORPAY}")
+    private String paymentMode;
+
     @Override
     @Transactional
     public PaymentResponse createPayment(Long userId, Long orderId) {
@@ -41,6 +44,17 @@ public class PaymentServiceImpl implements PaymentService {
             return response(order, payment, payment.getTransactionId());
         }
         if (payment != null && payment.getPaymentStatus() == PaymentStatus.CREATED && payment.getTransactionId() != null) {
+            return response(order, payment, payment.getTransactionId());
+        }
+
+        if ("MOCK".equalsIgnoreCase(paymentMode)) {
+            if (payment == null) {
+                payment = Payment.builder().order(order).paymentMethod("MOCK").build();
+                order.setPayment(payment);
+            }
+            payment.setPaymentStatus(PaymentStatus.CREATED);
+            payment.setTransactionId("mock-order-" + order.getId());
+            orderRepository.save(order);
             return response(order, payment, payment.getTransactionId());
         }
 
@@ -72,6 +86,18 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = findOwnedOrder(userId, orderId);
         Payment payment = order.getPayment();
         if (payment == null || payment.getTransactionId() == null) throw new IllegalStateException("No payment has been created for this order.");
+
+        if ("MOCK".equalsIgnoreCase(paymentMode)) {
+            if (!payment.getTransactionId().equals(request.getRazorpayOrderId())) {
+                throw new IllegalStateException("Mock payment order ID does not match this order.");
+            }
+            payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setTransactionId("mock-payment-" + orderId);
+            if (order.getStatus() == OrderStatus.PENDING) order.setStatus(OrderStatus.CONFIRMED);
+            orderRepository.save(order);
+            return response(order, payment, request.getRazorpayOrderId());
+        }
+
         if (!payment.getTransactionId().equals(request.getRazorpayOrderId())) throw new IllegalStateException("Payment order ID does not match this order.");
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) return response(order, payment, request.getRazorpayOrderId());
 
