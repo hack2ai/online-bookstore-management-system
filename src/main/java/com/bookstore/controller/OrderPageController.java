@@ -1,9 +1,12 @@
 package com.bookstore.controller;
 
 import com.bookstore.dto.response.OrderResponse;
+import com.bookstore.dto.response.PaymentResponse;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.service.OrderService;
+import com.bookstore.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -22,6 +25,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class OrderPageController {
 
     private final OrderService orderService;
+    private final PaymentService paymentService;
+
+    @Value("${razorpay.key-id:}")
+    private String razorpayKeyId;
 
     @GetMapping
     public String orders(Authentication authentication,
@@ -36,6 +43,17 @@ public class OrderPageController {
     public String order(@PathVariable Long id, Authentication authentication, Model model) {
         model.addAttribute("order", orderService.getMyOrder(userId(authentication), id));
         return "order-details";
+    }
+
+    @GetMapping("/{id}/pay")
+    public String pay(@PathVariable Long id, Authentication authentication, Model model) {
+        Long userId = userId(authentication);
+        OrderResponse order = orderService.getMyOrder(userId, id);
+        PaymentResponse payment = paymentService.createPayment(userId, id);
+        model.addAttribute("order", order);
+        model.addAttribute("payment", payment);
+        model.addAttribute("razorpayKeyId", razorpayKeyId);
+        return "payment";
     }
 
     @PostMapping("/{id}/cancel")
