@@ -10,6 +10,25 @@
 <nav class="navbar bg-dark navbar-dark"><div class="container"><a class="navbar-brand fw-bold" href="/admin">BOOKSTORE ADMIN</a><div class="d-flex gap-2"><a href="/admin" class="btn btn-sm btn-outline-light rounded-pill">Dashboard</a><a href="/" class="btn btn-sm btn-light rounded-pill">Storefront</a></div></div></nav>
 <main class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4"><div><div class="text-secondary text-uppercase small fw-bold">Insights</div><h1 class="fw-bold mb-1">Analytics</h1><p class="text-secondary mb-0">A quick view of revenue, order health, and product demand.</p></div></div>
+
+    <form method="get" class="card border-0 shadow-sm rounded-4 p-3 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold" for="from">From</label>
+                <input id="from" name="from" type="date" class="form-control" th:value="${from}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold" for="to">To</label>
+                <input id="to" name="to" type="date" class="form-control" th:value="${to}">
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-dark rounded-pill flex-grow-1" type="submit">Apply range</button>
+                <a href="/admin/analytics" class="btn btn-outline-dark rounded-pill">All time</a>
+            </div>
+        </div>
+        <div class="small text-secondary mt-2" th:if="${from != null || to != null}">Metrics below are filtered to the selected date range.</div>
+    </form>
+
     <div class="row g-3">
         <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><div class="text-secondary">Successful revenue</div><div class="display-6 fw-bold mt-2" th:text="${'₹' + analytics.paidRevenue}">₹0</div></div></div>
         <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><div class="text-secondary">Paid orders</div><div class="display-6 fw-bold mt-2" th:text="${analytics.paidOrders}">0</div><div class="small text-secondary mt-2">Avg. order <span th:text="${'₹' + analytics.averageOrderValue}">₹0</span></div></div></div>
@@ -18,7 +37,7 @@
     </div>
 
     <div class="row g-3 mt-1">
-        <div class="col-lg-8"><div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100"><div class="p-4"><h5 class="fw-bold mb-0">Top-selling books</h5><p class="text-secondary mb-0 mt-1">Units selected in orders, highest first.</p></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th class="ps-4">Book</th><th>Author</th><th class="text-end pe-4">Units</th></tr></thead><tbody><tr th:each="book : ${analytics.bestSellingBooks}"><td class="ps-4 fw-semibold" th:text="${book.title}">Book</td><td th:text="${book.author}">Author</td><td class="text-end pe-4" th:text="${book.unitsSold}">0</td></tr><tr th:if="${analytics.bestSellingBooks.empty}"><td colspan="3" class="text-center text-secondary py-5">No sales data yet.</td></tr></tbody></table></div></div></div>
+        <div class="col-lg-8"><div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100"><div class="p-4"><h5 class="fw-bold mb-0">Top-selling books</h5><p class="text-secondary mb-0 mt-1">Units selected in orders, highest first. This ranking remains all-time.</p></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th class="ps-4">Book</th><th>Author</th><th class="text-end pe-4">Units</th></tr></thead><tbody><tr th:each="book : ${analytics.bestSellingBooks}"><td class="ps-4 fw-semibold" th:text="${book.title}">Book</td><td th:text="${book.author}">Author</td><td class="text-end pe-4" th:text="${book.unitsSold}">0</td></tr><tr th:if="${analytics.bestSellingBooks.empty}"><td colspan="3" class="text-center text-secondary py-5">No sales data yet.</td></tr></tbody></table></div></div></div>
         <div class="col-lg-4"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><div class="text-secondary text-uppercase small fw-bold">Operations</div><h5 class="fw-bold mt-2">Low stock</h5><div class="display-5 fw-bold" th:text="${analytics.lowStockBooks}">0</div><p class="text-secondary">Books at or below the 5-unit threshold.</p><a href="/admin/inventory" class="btn btn-outline-dark rounded-pill">Open inventory</a></div></div>
     </div>
 </main>
