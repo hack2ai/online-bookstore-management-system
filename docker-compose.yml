@@ -29,6 +29,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      PAYMENT_MODE: ${PAYMENT_MODE:-RAZORPAY}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: bookstore_db
