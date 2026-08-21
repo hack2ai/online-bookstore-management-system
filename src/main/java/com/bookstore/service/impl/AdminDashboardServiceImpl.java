@@ -25,6 +25,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     @Override
     public AdminDashboardResponse getDashboard() {
+        BigDecimal paidRevenue = orderRepository.sumAllPaidAmount();
         return AdminDashboardResponse.builder()
                 .bookCount(bookRepository.count())
                 .categoryCount(categoryRepository.count())
@@ -32,7 +33,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .orderCount(orderRepository.count())
                 .pendingOrders(orderRepository.countByStatus(OrderStatus.PENDING))
                 .lowStockBooks(bookRepository.countByStockLessThanEqual(5))
-                .paidRevenue(BigDecimal.ZERO)
+                .paidRevenue(paidRevenue == null ? BigDecimal.ZERO : paidRevenue)
                 .build();
     }
 }
