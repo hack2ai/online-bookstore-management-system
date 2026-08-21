@@ -129,8 +129,10 @@ public class OrderServiceImpl implements OrderService {
         var items = order.getOrderItems().stream().map(item -> OrderItemResponse.builder()
                 .bookId(item.getBook().getId()).title(item.getBook().getTitle()).quantity(item.getQuantity())
                 .unitPrice(item.getPrice()).subtotal(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))).build()).toList();
+        var paymentStatus = order.getPayment() == null ? null : order.getPayment().getPaymentStatus();
         return OrderResponse.builder().id(order.getId()).subtotalAmount(order.getSubtotalAmount())
                 .discountAmount(order.getDiscountAmount()).couponCode(order.getCouponCode()).totalAmount(order.getTotalAmount())
-                .status(order.getStatus()).orderDate(order.getOrderDate()).shippingAddress(order.getShippingAddress()).items(items).build();
+                .status(order.getStatus()).paymentStatus(paymentStatus).orderDate(order.getOrderDate())
+                .shippingAddress(order.getShippingAddress()).items(items).build();
     }
 }
