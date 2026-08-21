@@ -87,6 +87,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public OrderResponse getOrder(Long orderId) {
+        return toResponse(find(orderId));
+    }
+
+    @Override
     @Transactional
     public void cancelOrder(Long userId, Long orderId) {
         Order order = find(orderId); ensureOwner(order, userId);
