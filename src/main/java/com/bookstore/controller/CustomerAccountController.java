@@ -27,7 +27,7 @@ public class CustomerAccountController {
         var user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         var orders = orderService.getMyOrders(
                 user.getId(),
-                PageRequest.of(0, 5, Sort.by("createdAt").descending())
+                PageRequest.of(0, 5, Sort.by("orderDate").descending())
         );
         model.addAttribute("user", user);
         model.addAttribute("orders", orders);
