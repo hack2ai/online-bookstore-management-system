@@ -1,6 +1,7 @@
 package com.bookstore.controller;
 
 import com.bookstore.dto.request.CheckoutRequest;
+import com.bookstore.dto.response.CartResponse;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.service.CartService;
 import com.bookstore.service.OrderService;
@@ -13,6 +14,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/checkout")
@@ -23,8 +25,16 @@ public class CheckoutPageController {
     private final OrderService orderService;
 
     @GetMapping
-    public String checkout(Authentication authentication, Model model) {
-        model.addAttribute("cart", cartService.getCart(userId(authentication)));
+    public String checkout(Authentication authentication,
+                           Model model,
+                           RedirectAttributes redirectAttributes) {
+        CartResponse cart = cartService.getCart(userId(authentication));
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+            redirectAttributes.addFlashAttribute("warning", "Your cart is empty. Add a book before checking out.");
+            return "redirect:/cart";
+        }
+
+        model.addAttribute("cart", cart);
         return "checkout";
     }
 
@@ -32,9 +42,16 @@ public class CheckoutPageController {
     public String placeOrder(@Valid CheckoutRequest request,
                              BindingResult bindingResult,
                              Authentication authentication,
-                             Model model) {
+                             Model model,
+                             RedirectAttributes redirectAttributes) {
+        CartResponse cart = cartService.getCart(userId(authentication));
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+            redirectAttributes.addFlashAttribute("warning", "Your cart is empty. Add a book before checking out.");
+            return "redirect:/cart";
+        }
+
         if (bindingResult.hasErrors()) {
-            model.addAttribute("cart", cartService.getCart(userId(authentication)));
+            model.addAttribute("cart", cart);
             return "checkout";
         }
 
