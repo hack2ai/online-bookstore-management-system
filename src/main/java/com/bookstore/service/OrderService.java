@@ -10,6 +10,7 @@ public interface OrderService {
     OrderResponse placeOrder(Long userId, CheckoutRequest request);
     Page<OrderResponse> getMyOrders(Long userId, Pageable pageable);
     OrderResponse getMyOrder(Long userId, Long orderId);
+    OrderResponse getOrder(Long orderId);
     void cancelOrder(Long userId, Long orderId);
     Page<OrderResponse> getAllOrders(OrderStatus status, Pageable pageable);
     OrderResponse updateStatus(Long orderId, OrderStatus status);
