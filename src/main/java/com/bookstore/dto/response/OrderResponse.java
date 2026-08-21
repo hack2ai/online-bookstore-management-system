@@ -1,6 +1,7 @@
 package com.bookstore.dto.response;
 
 import com.bookstore.entity.OrderStatus;
+import com.bookstore.entity.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class OrderResponse {
     private String couponCode;
     private BigDecimal totalAmount;
     private OrderStatus status;
+    private PaymentStatus paymentStatus;
     private LocalDateTime orderDate;
     private String shippingAddress;
     private List<OrderItemResponse> items;
