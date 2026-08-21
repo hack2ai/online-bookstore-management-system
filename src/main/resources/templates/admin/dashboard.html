@@ -28,10 +28,14 @@
         </div>
     </div>
     <div class="row g-3">
-        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 p-4"><i class="bi bi-book fs-3"></i><div class="text-secondary mt-3">Books</div><h2 class="fw-bold" th:text="${bookCount}">0</h2></div></div>
-        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 p-4"><i class="bi bi-tags fs-3"></i><div class="text-secondary mt-3">Categories</div><h2 class="fw-bold" th:text="${categoryCount}">0</h2></div></div>
-        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 p-4"><i class="bi bi-receipt fs-3"></i><div class="text-secondary mt-3">Orders</div><h2 class="fw-bold" th:text="${orderCount}">0</h2></div></div>
-        <div class="col-md-3"><div class="card border-0 shadow-sm rounded-4 p-4"><i class="bi bi-people fs-3"></i><div class="text-secondary mt-3">Customers</div><h2 class="fw-bold" th:text="${customerCount}">0</h2></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><i class="bi bi-book fs-3"></i><div class="text-secondary mt-3">Books</div><h2 class="fw-bold" th:text="${bookCount}">0</h2><a href="/admin/books" class="small text-decoration-none">Manage catalog →</a></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><i class="bi bi-tags fs-3"></i><div class="text-secondary mt-3">Categories</div><h2 class="fw-bold" th:text="${categoryCount}">0</h2><a href="/admin/categories" class="small text-decoration-none">Manage categories →</a></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><i class="bi bi-receipt fs-3"></i><div class="text-secondary mt-3">Orders</div><h2 class="fw-bold" th:text="${orderCount}">0</h2><div class="small text-secondary" th:text="${pendingOrders + ' pending'}">0 pending</div><a href="/admin/orders" class="small text-decoration-none">Review orders →</a></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><i class="bi bi-people fs-3"></i><div class="text-secondary mt-3">Customers</div><h2 class="fw-bold" th:text="${customerCount}">0</h2><a href="/admin/customers" class="small text-decoration-none">View customers →</a></div></div>
+    </div>
+    <div class="row g-3 mt-1">
+        <div class="col-md-6"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><div class="d-flex justify-content-between align-items-center"><div><div class="text-secondary text-uppercase small fw-bold">Operations</div><h5 class="fw-bold mt-2 mb-1">Low stock</h5><p class="text-secondary mb-0">Books at or below the 5-unit threshold.</p></div><div class="display-6 fw-bold" th:text="${lowStockBooks}">0</div></div><a href="/admin/inventory" class="btn btn-outline-dark rounded-pill mt-4 align-self-start">Open inventory</a></div></div>
+        <div class="col-md-6"><div class="card border-0 shadow-sm rounded-4 p-4 h-100"><div class="text-secondary text-uppercase small fw-bold">Revenue</div><h5 class="fw-bold mt-2 mb-1">Successful payments</h5><div class="display-6 fw-bold" th:text="${'₹' + paidRevenue}">₹0</div><p class="text-secondary mb-0">Completed payments across all customers.</p></div></div>
     </div>
     <div class="card border-0 shadow-sm rounded-4 mt-4 p-4">
         <h5 class="fw-bold">Management</h5>
