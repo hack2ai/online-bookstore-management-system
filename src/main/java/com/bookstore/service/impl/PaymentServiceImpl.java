@@ -36,6 +36,14 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = findOwnedOrder(userId, orderId);
         if (order.getStatus() == OrderStatus.CANCELLED) throw new IllegalStateException("Cancelled orders cannot be paid.");
 
+        Payment payment = order.getPayment();
+        if (payment != null && payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            return response(order, payment, payment.getTransactionId());
+        }
+        if (payment != null && payment.getPaymentStatus() == PaymentStatus.CREATED && payment.getTransactionId() != null) {
+            return response(order, payment, payment.getTransactionId());
+        }
+
         try {
             RazorpayClient client = new RazorpayClient(keyId, keySecret);
             JSONObject options = new JSONObject();
@@ -44,7 +52,6 @@ public class PaymentServiceImpl implements PaymentService {
             options.put("receipt", "BOOKSTORE-" + order.getId());
             com.razorpay.Order razorpayOrder = client.orders.create(options);
 
-            Payment payment = order.getPayment();
             if (payment == null) {
                 payment = Payment.builder().order(order).paymentMethod("RAZORPAY").build();
                 order.setPayment(payment);
@@ -53,8 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setTransactionId(razorpayOrder.get("id"));
             orderRepository.save(order);
 
-            return PaymentResponse.builder().orderId(orderId).razorpayOrderId(razorpayOrder.get("id"))
-                    .transactionId(payment.getTransactionId()).status(payment.getPaymentStatus()).build();
+            return response(order, payment, razorpayOrder.get("id"));
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to create Razorpay payment order.", ex);
         }
