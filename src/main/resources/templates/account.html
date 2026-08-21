@@ -37,7 +37,11 @@
             <h1 class="fw-bold mb-1">My Account</h1>
             <p class="muted mb-0" th:text="${user.name + ' · ' + user.email}">Customer</p>
         </div>
-        <a href="/wishlist" class="btn accent rounded-pill">Wishlist <span th:text="${'(' + wishlistCount + ')'}">(0)</span></a>
+        <div class="d-flex gap-2">
+            <a href="/account/profile" class="btn btn-outline-dark rounded-pill">Edit profile</a>
+            <a href="/account/security" class="btn btn-outline-dark rounded-pill">Security</a>
+            <a href="/wishlist" class="btn accent rounded-pill">Wishlist <span th:text="${'(' + wishlistCount + ')'}">(0)</span></a>
+        </div>
     </div>
 
     <div class="row g-3">
@@ -87,6 +91,8 @@
 
     <div class="panel p-4 mt-4">
         <div class="d-flex flex-wrap gap-2">
+            <a href="/account/profile" class="btn btn-outline-dark rounded-pill">Edit profile</a>
+            <a href="/account/security" class="btn btn-outline-dark rounded-pill">Change password</a>
             <a href="/wishlist" class="btn btn-outline-dark rounded-pill">Wishlist</a>
             <a href="/orders" class="btn btn-outline-dark rounded-pill">My orders</a>
             <a href="/" class="btn btn-outline-dark rounded-pill">Continue shopping</a>
