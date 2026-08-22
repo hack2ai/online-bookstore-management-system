@@ -42,13 +42,14 @@ class AuthServiceImplTest {
     @Mock JwtUtil jwtUtil;
     @Mock AuthenticationManager authenticationManager;
     @Mock Authentication authentication;
+    @Mock AuditService auditService;
 
     private AuthServiceImpl service;
     private User user;
 
     @BeforeEach
     void setUp() {
-        service = new AuthServiceImpl(userRepository, refreshTokenRepository, passwordEncoder, jwtUtil, authenticationManager);
+        service = new AuthServiceImpl(userRepository, refreshTokenRepository, passwordEncoder, jwtUtil, authenticationManager, auditService);
         user = User.builder().id(7L).name("Groot").email("groot@example.com").password("hash").role(Role.CUSTOMER).build();
     }
 
@@ -73,6 +74,7 @@ class AuthServiceImplTest {
         assertThat(response.getEmail()).isEqualTo("groot@example.com");
         verify(passwordEncoder).encode("Secret123!");
         verify(userRepository).existsByEmail("groot@example.com");
+        verify(auditService).record("REGISTER_SUCCESS", 7L, "USER", 7L, "Customer account registered");
     }
 
     @Test
@@ -84,6 +86,7 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> service.register(request))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("already exists");
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -123,6 +126,7 @@ class AuthServiceImplTest {
 
         assertThat(stored.isRevoked()).isTrue();
         verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
+        verify(auditService).record("LOGOUT", 7L, "USER", 7L, "Refresh token revoked");
     }
 
     @Test
@@ -141,5 +145,6 @@ class AuthServiceImplTest {
         ArgumentCaptor<UsernamePasswordAuthenticationToken> captor = ArgumentCaptor.forClass(UsernamePasswordAuthenticationToken.class);
         verify(authenticationManager).authenticate(captor.capture());
         assertThat(captor.getValue().getName()).isEqualTo("groot@example.com");
+        verify(auditService).record("LOGIN_SUCCESS", 7L, "USER", 7L, "User authenticated successfully");
     }
 }

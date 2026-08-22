@@ -16,6 +16,7 @@ import com.bookstore.repository.BookRepository;
 import com.bookstore.repository.CartRepository;
 import com.bookstore.repository.OrderRepository;
 import com.bookstore.repository.UserRepository;
+import com.bookstore.service.AuditService;
 import com.bookstore.service.CouponService;
 import com.bookstore.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final CouponService couponService;
+    private final AuditService auditService;
 
     @Override
     @Transactional
@@ -73,6 +75,8 @@ public class OrderServiceImpl implements OrderService {
         Order saved = orderRepository.save(order);
         cart.getItems().clear();
         cartRepository.save(cart);
+        auditService.record("ORDER_CREATED", userId, "ORDER", saved.getId(),
+                "Order created with total=" + saved.getTotalAmount());
         return toResponse(saved);
     }
 
@@ -106,6 +110,7 @@ public class OrderServiceImpl implements OrderService {
             couponService.releaseReservation(userId, order.getCouponCode());
         }
         order.setStatus(OrderStatus.CANCELLED);
+        auditService.record("ORDER_CANCELLED", userId, "ORDER", order.getId(), "Order cancelled");
     }
 
     @Override
@@ -116,8 +121,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse updateStatus(Long orderId, OrderStatus status) {
-        Order order = find(orderId); validateTransition(order.getStatus(), status); order.setStatus(status);
-        return toResponse(orderRepository.save(order));
+        Order order = find(orderId); validateTransition(order.getStatus(), status);
+        OrderStatus previousStatus = order.getStatus();
+        order.setStatus(status);
+        OrderResponse response = toResponse(orderRepository.save(order));
+        auditService.record("ORDER_STATUS_UPDATED", order.getUser().getId(), "ORDER", orderId,
+                "Order status changed from " + previousStatus + " to " + status);
+        return response;
     }
 
     private Order find(Long id) { return orderRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Order", id)); }
