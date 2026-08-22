@@ -85,13 +85,15 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String message, HttpServletRequest request) {
         String requestId = request.getHeader("X-Request-Id");
-        return ResponseEntity.status(status)
-                .header("X-Request-Id", requestId == null ? "" : requestId)
-                .body(ApiErrorResponse.of(
-                        status.value(),
-                        status.getReasonPhrase(),
-                        message,
-                        request.getRequestURI(),
-                        requestId));
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
+        if (requestId != null && !requestId.isBlank()) {
+            builder.header("X-Request-Id", requestId);
+        }
+        return builder.body(ApiErrorResponse.of(
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI(),
+                requestId));
     }
 }
