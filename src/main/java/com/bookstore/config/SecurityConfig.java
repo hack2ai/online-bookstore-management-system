@@ -38,14 +38,15 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthFilter;
-    private final LoginRateLimitFilter loginRateLimitFilter;
     private final UiAuthenticationSuccessHandler uiAuthenticationSuccessHandler;
     private final UiAuthenticationFailureHandler uiAuthenticationFailureHandler;
     private final UiLogoutAuditHandler uiLogoutAuditHandler;
 
     @Bean
     @Order(1)
-    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain apiSecurityFilterChain(
+            HttpSecurity http,
+            LoginRateLimitFilter loginRateLimitFilter) throws Exception {
         http
             .securityMatcher("/api/**")
             .csrf(AbstractHttpConfigurer::disable)
@@ -81,7 +82,9 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain uiSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain uiSecurityFilterChain(
+            HttpSecurity http,
+            LoginRateLimitFilter loginRateLimitFilter) throws Exception {
         http
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
