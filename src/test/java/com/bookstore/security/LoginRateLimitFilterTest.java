@@ -36,8 +36,11 @@ class LoginRateLimitFilterTest {
 
         filter.recordFailure("203.0.113.10");
         filter.recordFailure("203.0.113.10");
-
-        // Model the filter's successful-login behavior through a fresh successful request.
         assertThat(filter.isBlocked("203.0.113.10")).isTrue();
+
+        filter.reset("203.0.113.10");
+
+        assertThat(filter.failuresFor("203.0.113.10")).isZero();
+        assertThat(filter.isBlocked("203.0.113.10")).isFalse();
     }
 }
