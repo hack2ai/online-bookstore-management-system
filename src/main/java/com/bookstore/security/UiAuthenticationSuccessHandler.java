@@ -34,6 +34,7 @@ public class UiAuthenticationSuccessHandler implements AuthenticationSuccessHand
                 "User authenticated successfully via web UI"
         );
 
+        request.setAttribute(LoginRateLimitFilter.LOGIN_SUCCESS_ATTRIBUTE, Boolean.TRUE);
         response.sendRedirect("/");
     }
 }

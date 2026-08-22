@@ -29,6 +29,7 @@ public class UiAuthenticationFailureHandler implements AuthenticationFailureHand
                 "Web UI authentication failed"
         );
 
+        request.setAttribute(LoginRateLimitFilter.LOGIN_FAILURE_ATTRIBUTE, Boolean.TRUE);
         response.sendRedirect("/auth/login?error=true");
     }
 }
