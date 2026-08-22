@@ -1,5 +1,6 @@
 package com.bookstore.config;
 
+import com.bookstore.service.RequestMetricsService;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RequestIdFilterTest {
 
-    private final RequestIdFilter filter = new RequestIdFilter();
+    private final RequestIdFilter filter = new RequestIdFilter(new RequestMetricsService());
 
     @Test
     void echoesSafeCallerRequestId() throws Exception {
