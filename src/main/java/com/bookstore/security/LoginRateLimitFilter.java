@@ -4,9 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -15,7 +13,6 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Component
 public class LoginRateLimitFilter extends OncePerRequestFilter {
 
     static final String LOGIN_FAILURE_ATTRIBUTE = LoginRateLimitFilter.class.getName() + ".failure";
@@ -28,9 +25,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     private final Duration window;
     private final ConcurrentHashMap<String, AttemptWindow> attempts = new ConcurrentHashMap<>();
 
-    public LoginRateLimitFilter(
-            @Value("${app.security.login-rate-limit.max-failures:5}") int maxFailures,
-            @Value("${app.security.login-rate-limit.window-ms:300000}") long windowMs) {
+    public LoginRateLimitFilter(int maxFailures, long windowMs) {
         if (maxFailures < 1) {
             throw new IllegalArgumentException("max-failures must be positive");
         }
