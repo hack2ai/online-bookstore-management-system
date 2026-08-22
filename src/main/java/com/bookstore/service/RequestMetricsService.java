@@ -36,12 +36,12 @@ public class RequestMetricsService {
     public MetricsSnapshot snapshot() {
         long total = totalRequests.get();
         double average = total == 0 ? 0.0 : (double) totalDurationMs.get() / total;
-        List<EndpointSnapshot> topEndpoints = new ArrayList<>();
-        endpointStats.values().forEach(stats -> topEndpoints.add(stats.snapshot()));
-        topEndpoints.sort(Comparator.comparingLong(EndpointSnapshot::getRequestCount).reversed());
-        if (topEndpoints.size() > 8) {
-            topEndpoints = new ArrayList<>(topEndpoints.subList(0, 8));
-        }
+        List<EndpointSnapshot> endpoints = new ArrayList<>();
+        endpointStats.values().forEach(stats -> endpoints.add(stats.snapshot()));
+        endpoints.sort(Comparator.comparingLong(EndpointSnapshot::getRequestCount).reversed());
+        List<EndpointSnapshot> topEndpoints = endpoints.size() > 8
+                ? new ArrayList<>(endpoints.subList(0, 8))
+                : endpoints;
         return new MetricsSnapshot(total, successfulResponses.get(), clientErrors.get(), serverErrors.get(), average, topEndpoints);
     }
 
