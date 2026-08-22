@@ -1,5 +1,6 @@
 package com.bookstore.service.impl;
 
+import com.bookstore.config.RequestIdFilter;
 import com.bookstore.entity.AuditEvent;
 import com.bookstore.repository.AuditEventRepository;
 import com.bookstore.service.AuditService;
@@ -13,8 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuditServiceImpl implements AuditService {
 
-    private static final String REQUEST_ID_KEY = "X-Request-Id";
-
     private final AuditEventRepository auditEventRepository;
 
     @Override
@@ -25,7 +24,7 @@ public class AuditServiceImpl implements AuditService {
                 .userId(userId)
                 .resourceType(resourceType)
                 .resourceId(resourceId)
-                .requestId(normalize(MDC.get(REQUEST_ID_KEY)))
+                .requestId(normalize(MDC.get(RequestIdFilter.MDC_KEY)))
                 .details(normalize(details))
                 .build();
 
