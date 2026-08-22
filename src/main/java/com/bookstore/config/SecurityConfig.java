@@ -2,6 +2,9 @@ package com.bookstore.config;
 
 import com.bookstore.security.CustomUserDetailsService;
 import com.bookstore.security.JwtAuthenticationFilter;
+import com.bookstore.security.UiAuthenticationFailureHandler;
+import com.bookstore.security.UiAuthenticationSuccessHandler;
+import com.bookstore.security.UiLogoutAuditHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +33,9 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final UiAuthenticationSuccessHandler uiAuthenticationSuccessHandler;
+    private final UiAuthenticationFailureHandler uiAuthenticationFailureHandler;
+    private final UiLogoutAuditHandler uiLogoutAuditHandler;
 
     @Bean
     @Order(1)
@@ -89,12 +95,13 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage("/auth/login")
                 .loginProcessingUrl("/auth/login")
-                .defaultSuccessUrl("/", true)
-                .failureUrl("/auth/login?error=true")
+                .successHandler(uiAuthenticationSuccessHandler)
+                .failureHandler(uiAuthenticationFailureHandler)
                 .permitAll()
             )
             .logout(logout -> logout
                 .logoutUrl("/auth/logout")
+                .addLogoutHandler(uiLogoutAuditHandler)
                 .logoutSuccessUrl("/auth/login?logout=true")
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
