@@ -7,6 +7,7 @@ import com.bookstore.security.UiAuthenticationFailureHandler;
 import com.bookstore.security.UiAuthenticationSuccessHandler;
 import com.bookstore.security.UiLogoutAuditHandler;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -119,6 +120,13 @@ public class SecurityConfig {
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public LoginRateLimitFilter loginRateLimitFilter(
+            @Value("${app.security.login-rate-limit.max-failures:5}") int maxFailures,
+            @Value("${app.security.login-rate-limit.window-ms:300000}") long windowMs) {
+        return new LoginRateLimitFilter(maxFailures, windowMs);
     }
 
     @Bean
