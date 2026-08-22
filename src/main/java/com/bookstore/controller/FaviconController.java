@@ -9,6 +9,7 @@ public class FaviconController {
 
     @GetMapping("/favicon.ico")
     public ResponseEntity<Void> favicon() {
+        // Browsers request this path automatically; keep it a successful no-op.
         return ResponseEntity.noContent().build();
     }
 }
