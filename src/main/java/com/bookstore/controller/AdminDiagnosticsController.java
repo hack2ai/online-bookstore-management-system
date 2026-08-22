@@ -3,6 +3,7 @@ package com.bookstore.controller;
 import com.bookstore.dto.response.AdminDashboardResponse;
 import com.bookstore.repository.AuditEventRepository;
 import com.bookstore.service.AdminDashboardService;
+import com.bookstore.service.RequestMetricsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.core.env.Environment;
@@ -24,10 +25,12 @@ public class AdminDiagnosticsController {
     private final AdminDashboardService dashboardService;
     private final AuditEventRepository auditEventRepository;
     private final Environment environment;
+    private final RequestMetricsService requestMetricsService;
 
     @GetMapping
     public String diagnostics(Model model) {
         AdminDashboardResponse dashboard = dashboardService.getDashboard();
+        RequestMetricsService.MetricsSnapshot metrics = requestMetricsService.snapshot();
 
         model.addAttribute("healthStatus", healthEndpoint.health().getStatus().getCode());
         model.addAttribute("databaseStatus", databaseStatus());
@@ -38,6 +41,7 @@ public class AdminDiagnosticsController {
         model.addAttribute("orderCount", dashboard.getOrderCount());
         model.addAttribute("customerCount", dashboard.getCustomerCount());
         model.addAttribute("auditEventCount", auditEventRepository.count());
+        model.addAttribute("metrics", metrics);
 
         return "admin/diagnostics";
     }
