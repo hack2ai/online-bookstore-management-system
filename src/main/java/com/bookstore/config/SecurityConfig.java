@@ -2,6 +2,7 @@ package com.bookstore.config;
 
 import com.bookstore.security.CustomUserDetailsService;
 import com.bookstore.security.JwtAuthenticationFilter;
+import com.bookstore.security.LoginRateLimitFilter;
 import com.bookstore.security.UiAuthenticationFailureHandler;
 import com.bookstore.security.UiAuthenticationSuccessHandler;
 import com.bookstore.security.UiLogoutAuditHandler;
@@ -36,6 +37,7 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final LoginRateLimitFilter loginRateLimitFilter;
     private final UiAuthenticationSuccessHandler uiAuthenticationSuccessHandler;
     private final UiAuthenticationFailureHandler uiAuthenticationFailureHandler;
     private final UiLogoutAuditHandler uiLogoutAuditHandler;
@@ -70,6 +72,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -112,7 +115,8 @@ public class SecurityConfig {
                 .deleteCookies("JSESSIONID")
                 .permitAll()
             )
-            .authenticationProvider(authenticationProvider());
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
