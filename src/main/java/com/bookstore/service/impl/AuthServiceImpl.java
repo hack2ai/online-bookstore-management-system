@@ -13,6 +13,7 @@ import com.bookstore.repository.RefreshTokenRepository;
 import com.bookstore.repository.UserRepository;
 import com.bookstore.security.CustomUserDetails;
 import com.bookstore.security.JwtUtil;
+import com.bookstore.service.AuditService;
 import com.bookstore.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final AuditService auditService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -66,6 +68,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         user = userRepository.save(user);
+        auditService.record("REGISTER_SUCCESS", user.getId(), "USER", user.getId(), "Customer account registered");
         log.info("New customer registered: id={}", user.getId());
         return createAuthResponse(user);
     }
@@ -79,6 +82,7 @@ public class AuthServiceImpl implements AuthService {
 
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
         User user = userDetails.getUser();
+        auditService.record("LOGIN_SUCCESS", user.getId(), "USER", user.getId(), "User authenticated successfully");
         log.info("User logged in: id={}, role={}", user.getId(), user.getRole());
         return createAuthResponse(user);
     }
@@ -105,7 +109,11 @@ public class AuthServiceImpl implements AuthService {
     public void logout(RefreshTokenRequest request) {
         refreshTokenRepository
                 .findByTokenHashAndRevokedAtIsNull(hashToken(request.getRefreshToken().trim()))
-                .ifPresent(RefreshToken::revoke);
+                .ifPresent(token -> {
+                    Long userId = token.getUser().getId();
+                    token.revoke();
+                    auditService.record("LOGOUT", userId, "USER", userId, "Refresh token revoked");
+                });
     }
 
     private AuthResponse createAuthResponse(User user) {
