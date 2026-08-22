@@ -61,7 +61,9 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
 
-        if (Boolean.TRUE.equals(request.getAttribute(LOGIN_SUCCESS_ATTRIBUTE))) {
+        if (Boolean.TRUE.equals(request.getAttribute(LOGIN_SUCCESS_ATTRIBUTE))
+                || (response.getStatus() < HttpStatus.BAD_REQUEST.value()
+                && !Boolean.TRUE.equals(request.getAttribute(LOGIN_FAILURE_ATTRIBUTE)))) {
             attempts.remove(key);
             return;
         }
