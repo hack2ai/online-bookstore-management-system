@@ -34,7 +34,7 @@ class AuditServiceImplTest {
 
     @Test
     void recordsRequestIdAndAuditDetails() {
-        MDC.put("X-Request-Id", "checkout-123");
+        MDC.put("requestId", "checkout-123");
 
         service.record("ORDER_CREATED", 7L, "ORDER", 42L, "Order created");
 
