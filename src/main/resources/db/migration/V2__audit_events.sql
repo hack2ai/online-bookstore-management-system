@@ -11,8 +11,5 @@ CREATE TABLE audit_events (
     INDEX idx_audit_events_created_at (created_at),
     INDEX idx_audit_events_user_id (user_id),
     INDEX idx_audit_events_event_type (event_type),
-    INDEX idx_audit_events_resource (resource_type, resource_id),
-    CONSTRAINT fk_audit_events_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE SET NULL
+    INDEX idx_audit_events_resource (resource_type, resource_id)
 );
