@@ -36,13 +36,14 @@ class OrderServiceImplTest {
     @Mock OrderRepository orderRepository;
     @Mock UserRepository userRepository;
     @Mock CouponService couponService;
+    @Mock AuditService auditService;
 
     private OrderServiceImpl service;
     private User user;
 
     @BeforeEach
     void setUp() {
-        service = new OrderServiceImpl(orderRepository, cartRepository, bookRepository, userRepository, couponService);
+        service = new OrderServiceImpl(orderRepository, cartRepository, bookRepository, userRepository, couponService, auditService);
         user = User.builder().id(1L).name("Test User").email("test@example.com").password("hash").role(Role.CUSTOMER).build();
     }
 
@@ -55,7 +56,11 @@ class OrderServiceImplTest {
         when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(bookRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(book));
-        when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any())).thenAnswer(invocation -> {
+            com.bookstore.entity.Order saved = invocation.getArgument(0);
+            saved.setId(99L);
+            return saved;
+        });
 
         var response = service.placeOrder(1L, CheckoutRequest.builder().shippingAddress("Bengaluru").build());
 
@@ -65,6 +70,7 @@ class OrderServiceImplTest {
         assertThat(book.getStock()).isEqualTo(3);
         assertThat(cart.getItems()).isEmpty();
         verify(cartRepository).save(cart);
+        verify(auditService).record("ORDER_CREATED", 1L, "ORDER", 99L, "Order created with total=1000.00");
 
         ArgumentCaptor<com.bookstore.entity.Order> captor = ArgumentCaptor.forClass(com.bookstore.entity.Order.class);
         verify(orderRepository).save(captor.capture());
@@ -107,6 +113,7 @@ class OrderServiceImplTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Insufficient stock");
         verify(orderRepository, never()).save(any());
+        verifyNoInteractions(auditService);
     }
 
     @Test
@@ -117,5 +124,6 @@ class OrderServiceImplTest {
         assertThatThrownBy(() -> service.placeOrder(1L, CheckoutRequest.builder().shippingAddress("Bengaluru").build()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("cart is empty");
+        verifyNoInteractions(auditService);
     }
 }
