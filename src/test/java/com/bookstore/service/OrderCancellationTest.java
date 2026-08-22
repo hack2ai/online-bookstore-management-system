@@ -32,6 +32,7 @@ class OrderCancellationTest {
     @Mock BookRepository bookRepository;
     @Mock UserRepository userRepository;
     @Mock CouponService couponService;
+    @Mock AuditService auditService;
 
     private OrderServiceImpl service;
     private User user;
@@ -40,7 +41,7 @@ class OrderCancellationTest {
 
     @BeforeEach
     void setUp() {
-        service = new OrderServiceImpl(orderRepository, cartRepository, bookRepository, userRepository, couponService);
+        service = new OrderServiceImpl(orderRepository, cartRepository, bookRepository, userRepository, couponService, auditService);
         user = User.builder().id(1L).name("Test").email("test@example.com").password("hash").role(Role.CUSTOMER).build();
         book = Book.builder().id(10L).title("Clean Code").price(new BigDecimal("500.00")).stock(3).build();
         order = Order.builder().id(100L).user(user).status(OrderStatus.PENDING)
