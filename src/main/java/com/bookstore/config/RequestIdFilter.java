@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -15,14 +17,16 @@ import java.util.UUID;
  * Adds a stable correlation identifier to every HTTP response and logging context.
  *
  * If a caller supplies a safe request id, it is echoed back; otherwise a
- * server-generated UUID is used. The identifier can be propagated through
- * application logs and support tickets to trace a request end-to-end.
+ * server-generated UUID is used. The identifier is placed in MDC for the
+ * duration of the request so log entries can be correlated with responses.
  */
 @Component
 public class RequestIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER_NAME = "X-Request-Id";
+    public static final String MDC_KEY = "requestId";
     private static final int MAX_LENGTH = 128;
+    private static final Logger log = LoggerFactory.getLogger(RequestIdFilter.class);
 
     @Override
     protected void doFilterInternal(
@@ -36,11 +40,16 @@ public class RequestIdFilter extends OncePerRequestFilter {
         }
 
         response.setHeader(HEADER_NAME, requestId);
-        MDC.put(HEADER_NAME, requestId);
+        MDC.put(MDC_KEY, requestId);
+        long startedAt = System.nanoTime();
+
         try {
             filterChain.doFilter(request, response);
         } finally {
-            MDC.remove(HEADER_NAME);
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
+            log.info("request completed method={} path={} status={} durationMs={}",
+                    request.getMethod(), request.getRequestURI(), response.getStatus(), durationMs);
+            MDC.remove(MDC_KEY);
         }
     }
 
