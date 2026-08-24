@@ -41,14 +41,14 @@ jobs:
     needs: test
     permissions:
       contents: read
+    env:
+      JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Start Docker Compose stack
-        env:
-          JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
         run: docker compose up -d --build
 
       - name: Wait for application health
