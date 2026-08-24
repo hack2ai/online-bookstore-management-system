@@ -1,80 +1,186 @@
 # Deployment Runbook
 
-## 1. Local Docker deployment
+This runbook covers the supported Docker Compose deployment path for the bookstore application.
 
-Copy the example environment file and replace every placeholder with real values.
+## 1. Prerequisites
+
+Install Docker Desktop with Docker Compose support. For non-container development, the repository also supports Java 21, Maven 3.8+, and MySQL 8.
+
+## 2. Configure the environment
+
+Create a local environment file from the checked-in template:
 
 ```bash
-cp .env.example .env
+copy .env.example .env
 ```
 
-Start the application and MySQL:
+Replace all placeholders before starting the stack. Never commit `.env`, live credentials, API keys, or JWT secrets.
+
+Current configuration names include:
+
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`
+- `DB_ROOT_PASSWORD`
+- `SPRING_PROFILES_ACTIVE`
+- `JWT_SECRET`, `JWT_EXPIRATION_MS`, `JWT_REFRESH_EXPIRATION_MS`, `JWT_ISSUER`
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_CURRENCY`
+- `UPLOAD_DIR`
+
+The repository `.env.example` is the source of truth for the current variable names and placeholder values.
+
+## 3. Start the stack
+
+From the repository root:
 
 ```bash
 docker compose up --build -d
 ```
 
-Check container status:
+The Compose stack starts MySQL and waits for the database health condition before starting the application.
+
+## 4. Verify the deployment
+
+Check the containers:
 
 ```bash
 docker compose ps
 ```
 
-The application is available at `http://localhost:8080`.
-Health endpoint:
+After startup settles, both `bookstore-mysql` and `bookstore-app` should report `healthy`.
 
-```text
-GET /actuator/health
+Check the application health endpoint:
+
+```bash
+curl -i http://localhost:8080/actuator/health
 ```
 
-Stop the stack:
+Expected:
+
+```text
+HTTP/1.1 200
+
+{"status":"UP"}
+```
+
+Check the storefront:
+
+```bash
+curl -i http://localhost:8080/
+```
+
+## 5. Logs and diagnostics
+
+Application logs:
+
+```bash
+docker compose logs app --tail=200
+```
+
+MySQL logs:
+
+```bash
+docker compose logs mysql --tail=200
+```
+
+For a container-local health check:
+
+```bash
+docker compose exec app curl -i http://127.0.0.1:8080/actuator/health
+```
+
+## 6. Restart and rebuild
+
+Restart without deleting persistent database data:
+
+```bash
+docker compose restart
+```
+
+Rebuild after source or dependency changes:
 
 ```bash
 docker compose down
+docker compose up --build -d
 ```
 
-Persistent MySQL data is stored in the `mysql_data` Docker volume.
+Do **not** use `docker compose down -v` unless you intentionally want to delete the local `mysql_data` volume.
 
-## 2. Production secrets
+## 7. Database migrations
 
-Required values:
+Flyway owns schema migrations. The production profile uses Hibernate schema validation, so production schema changes should be introduced through versioned Flyway migrations rather than automatic Hibernate DDL generation.
 
-- `DB_HOST`
-- `DB_USERNAME`
-- `DB_PASSWORD`
-- `JWT_SECRET`
-- `RAZORPAY_KEY_ID`
-- `RAZORPAY_KEY_SECRET`
+Before deploying a schema-changing release, review the migration against the current database version and back up production data according to your operational policy.
 
-Use a secret manager or the deployment platform's encrypted environment variables. Never commit `.env` or live secrets.
+## 8. Troubleshooting
 
-## 3. Production database
+### App is unhealthy or restarting
 
-The production profile uses Hibernate schema validation and disables startup `schema.sql` initialization. Run a versioned database migration process before deploying schema changes. Flyway or Liquibase is recommended for production operations.
+Run:
 
-## 4. Release procedure
+```bash
+docker compose ps -a
+docker compose logs app --tail=200
+```
 
-1. Open a pull request into `main`.
-2. Wait for GitHub Actions to pass tests and package the application.
+Then inspect the health history:
+
+```bash
+docker inspect --format="{{json .State.Health}}" bookstore-app
+```
+
+Look for Spring startup exceptions, configuration errors, failed database connections, and failing healthcheck commands.
+
+### Database is unhealthy
+
+Run:
+
+```bash
+docker compose logs mysql --tail=200
+```
+
+Verify that the credentials used by the application match the MySQL container configuration.
+
+### Host port 8080 is busy
+
+Stop the conflicting process or change the host-side port mapping in `docker-compose.yml`.
+
+### Host port 3306 is busy
+
+Stop the conflicting local MySQL service or change the host-side mapping when direct database access is required.
+
+## 9. Production safety checklist
+
+Before exposing the application beyond a trusted local environment:
+
+- Use a strong random `JWT_SECRET`.
+- Use non-default database credentials.
+- Supply real Razorpay credentials only through protected deployment secrets.
+- Keep `.env` out of version control.
+- Confirm `/actuator/health` returns HTTP 200 after startup.
+- Confirm protected admin routes are not anonymously accessible.
+- Back up the database before destructive maintenance.
+- Review deployment logs for migration failures, authentication errors, or payment verification failures.
+
+## 10. Release procedure
+
+1. Open a pull request into the repository's integration branch.
+2. Wait for GitHub Actions checks to pass.
 3. Build the production container from the reviewed commit.
-4. Apply database migrations.
+4. Apply database migrations through the application startup process.
 5. Deploy with the production environment variables.
 6. Verify `/actuator/health`.
-7. Verify login, catalog browsing and a payment test-mode transaction before enabling live payment credentials.
+7. Verify storefront access, catalog browsing, authentication, and a payment test-mode flow when payment integration is enabled.
+8. Record the deployed Git tag or commit for rollback.
 
-## 5. Rollback
+## 11. Rollback
 
-Rollback the application image to the previous known-good commit/image. Database migrations must be backward-compatible or have a documented down-migration strategy before rollout.
+Redeploy the previous known-good Git tag or container image:
 
-## 6. Operational checks
-
-After deployment, verify:
-
-```text
-GET /actuator/health
-GET /api/books
-POST /api/auth/login
-GET /swagger-ui.html
+```bash
+git checkout <known-good-tag-or-commit>
+docker compose down
+docker compose up --build -d
 ```
 
-Then inspect application logs for database connectivity, authentication failures and payment verification errors.
+Verify `/actuator/health` and the storefront before considering the rollback complete.
+
+Database rollback must be handled separately. Prefer backward-compatible migrations and a documented recovery procedure for production schema changes.
