@@ -43,6 +43,7 @@ jobs:
       contents: read
     env:
       JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+      PAYMENT_MODE: MOCK
 
     steps:
       - name: Checkout
