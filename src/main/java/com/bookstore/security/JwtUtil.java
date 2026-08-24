@@ -2,6 +2,7 @@ package com.bookstore.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
@@ -52,8 +53,10 @@ public class JwtUtil {
         byte[] keyBytes;
         try {
             keyBytes = Decoders.BASE64.decode(secret);
-        } catch (IllegalArgumentException e) {
-            // Not valid Base64 → treat as raw UTF-8 bytes (dev default case)
+        } catch (DecodingException | IllegalArgumentException e) {
+            // Not valid Base64 → treat as raw UTF-8 bytes (dev/CI fallback).
+            // JJWT throws DecodingException for malformed Base64 strings,
+            // which is not an IllegalArgumentException, so both must be handled.
             keyBytes = secret.getBytes();
         }
         this.signingKey = Keys.hmacShaKeyFor(keyBytes);
