@@ -74,6 +74,9 @@ jobs:
       - name: Verify storefront
         run: curl -fsS --max-time 10 http://localhost:8080/ > /dev/null
 
+      - name: Verify OpenAPI v3 endpoint
+        run: curl -fsS --max-time 10 http://localhost:8080/v3/api-docs > /dev/null
+
       - name: Verify container status
         run: docker compose ps
 
