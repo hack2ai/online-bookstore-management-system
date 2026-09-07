@@ -2,6 +2,7 @@ package com.bookstore.controller;
 
 import com.bookstore.dto.request.BookRequest;
 import com.bookstore.service.BookService;
+import com.bookstore.service.CategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminBookPageController {
     private final BookService bookService;
+    private final CategoryService categoryService;
 
     @GetMapping
     public String books(@RequestParam(required = false) String keyword,
@@ -31,6 +33,7 @@ public class AdminBookPageController {
     @GetMapping("/new")
     public String createForm(Model model) {
         model.addAttribute("bookId", null);
+        model.addAttribute("categories", categoryService.getAll());
         return "admin/book-form";
     }
 
@@ -44,6 +47,7 @@ public class AdminBookPageController {
     public String editForm(@PathVariable Long id, Model model) {
         model.addAttribute("bookId", id);
         model.addAttribute("book", bookService.getById(id));
+        model.addAttribute("categories", categoryService.getAll());
         return "admin/book-form";
     }
 
