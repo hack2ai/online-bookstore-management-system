@@ -10,14 +10,12 @@ import com.bookstore.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as OpenApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
@@ -26,8 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -43,11 +39,7 @@ public class OrderController {
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Place an order", description = "Creates an order from the authenticated customer's cart and reserves requested stock.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "201", description = "Order created successfully"),
-            @OpenApiResponse(responseCode = "400", description = "Invalid checkout request or unavailable stock"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required")
-    })
+    @ApiResponses
     public ResponseEntity<ApiResponse<OrderResponse>> checkout(
             Authentication authentication,
             @Valid @RequestBody CheckoutRequest request) {
@@ -62,7 +54,6 @@ public class OrderController {
     @Operation(summary = "List my orders", description = "Returns paginated orders belonging only to the authenticated customer.")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> myOrders(
             Authentication authentication,
-            @Parameter(description = "Pagination and sorting parameters.")
             @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "orderDate") Pageable pageable) {
         Pageable safePageable = sanitizePageable(pageable);
         return noStore(ApiResponse.success("Orders retrieved successfully.",
@@ -76,6 +67,7 @@ public class OrderController {
             Authentication authentication,
             @Parameter(name = "id", in = ParameterIn.PATH, description = "Order ID", required = true)
             @PathVariable Long id) {
+        validateOrderId(id);
         return noStore(ApiResponse.success("Order retrieved successfully.",
                 orderService.getMyOrder(userId(authentication), id)));
     }
@@ -87,6 +79,7 @@ public class OrderController {
             Authentication authentication,
             @Parameter(name = "id", in = ParameterIn.PATH, description = "Order ID", required = true)
             @PathVariable Long id) {
+        validateOrderId(id);
         orderService.cancelOrder(userId(authentication), id);
         return noStore(ApiResponse.success("Order cancelled successfully."));
     }
@@ -95,9 +88,7 @@ public class OrderController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all orders", description = "Administrative order listing with optional status filtering and bounded pagination.")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> allOrders(
-            @Parameter(description = "Optional order status filter.")
             @RequestParam(required = false) OrderStatus status,
-            @Parameter(description = "Pagination and sorting parameters.")
             @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "orderDate") Pageable pageable) {
         Pageable safePageable = sanitizePageable(pageable);
         return noStore(ApiResponse.success("Orders retrieved successfully.",
@@ -111,6 +102,7 @@ public class OrderController {
             @Parameter(name = "id", in = ParameterIn.PATH, description = "Order ID", required = true)
             @PathVariable Long id,
             @Valid @RequestBody OrderStatusRequest request) {
+        validateOrderId(id);
         return noStore(ApiResponse.success("Order status updated successfully.",
                 orderService.updateStatus(id, request.getStatus())));
     }
@@ -123,12 +115,19 @@ public class OrderController {
         return details.getUser().getId();
     }
 
-    private Pageable sanitizePageable(Pageable pageable) {
-        if (pageable == null || pageable.getPageSize() <= MAX_PAGE_SIZE) {
-            return pageable;
+    private void validateOrderId(Long id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("Order ID must be greater than zero");
         }
-        return org.springframework.data.domain.PageRequest.of(
-                pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort());
+    }
+
+    private Pageable sanitizePageable(Pageable pageable) {
+        if (pageable == null) {
+            return PageRequest.of(0, DEFAULT_PAGE_SIZE);
+        }
+        int safePage = Math.max(pageable.getPageNumber(), 0);
+        int safeSize = Math.min(Math.max(pageable.getPageSize(), 1), MAX_PAGE_SIZE);
+        return PageRequest.of(safePage, safeSize, pageable.getSort());
     }
 
     private <T> ResponseEntity<ApiResponse<T>> noStore(ApiResponse<T> body) {
