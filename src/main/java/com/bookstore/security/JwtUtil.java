@@ -10,27 +10,26 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 /**
- * JWT utility using JJWT 0.12.x (the API changed significantly from 0.11.x —
- * notably: parserBuilder() → parser(), and the key is now a SecretKey, not
- * a raw byte[]).
+ * JWT utility using JJWT 0.12.x.
  *
  * Tokens contain:
- *   - sub  : the user's email (the Spring Security "username")
- *   - role : the user's role string (CUSTOMER / ADMIN), so clients don't
- *            need a separate /me call just to know what UI to show
- *   - iat  : issued-at
- *   - exp  : expiry (default 24 h, overridable via JWT_EXPIRATION_MS env var)
+ *   - sub  : the user's email (the Spring Security username)
+ *   - role : the user's role string (CUSTOMER / ADMIN)
+ *   - userId : the authenticated user's database id
+ *   - iat  : issued-at timestamp
+ *   - exp  : expiry timestamp
+ *   - iss  : application issuer
  *
- * The secret is expected as a Base64-encoded string so it survives env-var
- * round-trips. The dev default in application.properties is a plain ASCII
- * string — JJWT will accept it, but it will log a warning about key length.
- * In production, set JWT_SECRET to a proper 256-bit Base64 secret.
+ * JWT_SECRET should be a strong Base64-encoded secret in shared/staging/
+ * production environments. The development fallback remains supported for
+ * local startup only.
  */
 @Component
 @Slf4j
@@ -45,18 +44,30 @@ public class JwtUtil {
             @Value("${app.jwt.expiration-ms}") long jwtExpirationMs,
             @Value("${app.jwt.issuer}") String issuer) {
 
-        // Support both plain strings and Base64-encoded secrets.
-        // In production, JWT_SECRET should be at least 32 random bytes,
-        // Base64-encoded. The dev default is a plain string — fine for
-        // local dev, insecure for anywhere real.
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret must not be empty.");
+        }
+        if (jwtExpirationMs <= 0) {
+            throw new IllegalStateException("JWT expiration must be greater than zero.");
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalStateException("JWT issuer must not be empty.");
+        }
+
         byte[] keyBytes;
         try {
             keyBytes = Decoders.BASE64.decode(secret);
         } catch (IllegalArgumentException e) {
-            // Not valid Base64 → treat as raw UTF-8 bytes (dev default case)
-            keyBytes = secret.getBytes();
+            // Local development fallback: accept a plain-text secret.
+            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         }
-        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+
+        try {
+            this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("JWT secret is too short. Use a strong secret of at least 256 bits.", e);
+        }
+
         this.jwtExpirationMs = jwtExpirationMs;
         this.issuer = issuer;
     }
@@ -77,7 +88,7 @@ public class JwtUtil {
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
                 .claims(extraClaims)
-                .subject(userDetails.getUsername())   // email
+                .subject(userDetails.getUsername())
                 .issuer(issuer)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
@@ -90,8 +101,15 @@ public class JwtUtil {
     // -------------------------------------------------------------------------
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String email = extractUsername(token);
-        return email.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        if (userDetails == null || userDetails.getUsername() == null) {
+            return false;
+        }
+        try {
+            final String email = extractUsername(token);
+            return userDetails.getUsername().equals(email) && !isTokenExpired(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public boolean isTokenExpired(String token) {
@@ -99,27 +117,30 @@ public class JwtUtil {
     }
 
     /**
-     * Validates token signature and structure; logs the specific failure reason
-     * so we can distinguish between expired tokens (normal), tampered tokens
-     * (security alert), and malformed tokens (client bug).
-     *
-     * Returns false rather than throwing, so the filter chain can continue
-     * and let Spring Security return a proper 401 rather than a 500.
+     * Validates token signature, issuer, structure and expiry-related claims.
+     * Returns false so the security filter can continue and Spring Security can
+     * decide whether the request should receive a 401/403 response.
      */
     public boolean validateToken(String token) {
         try {
-            Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token);
+            Jwts.parser()
+                    .verifyWith(signingKey)
+                    .requireIssuer(issuer)
+                    .build()
+                    .parseSignedClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT token expired: {}", e.getMessage());
+            log.debug("JWT token expired: {}", e.getMessage());
         } catch (SignatureException e) {
             log.warn("JWT signature invalid — possible token tampering: {}", e.getMessage());
         } catch (MalformedJwtException e) {
             log.warn("Malformed JWT token: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
             log.warn("Unsupported JWT token: {}", e.getMessage());
+        } catch (JwtException e) {
+            log.warn("JWT validation failed: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            log.warn("JWT claims string is empty: {}", e.getMessage());
+            log.warn("JWT token is empty or invalid: {}", e.getMessage());
         }
         return false;
     }
@@ -143,6 +164,7 @@ public class JwtUtil {
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
+                .requireIssuer(issuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
