@@ -86,7 +86,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse refresh(RefreshTokenRequest request) {
-        String rawToken = request.getRefreshToken().trim();
+        String rawToken = normalizeRefreshToken(request);
         RefreshToken stored = refreshTokenRepository
                 .findByTokenHashAndRevokedAtIsNull(hashToken(rawToken))
                 .orElseThrow(() -> new BadRequestException("Invalid or revoked refresh token."));
@@ -96,6 +96,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Refresh token has expired. Please log in again.");
         }
 
+        // Rotate refresh tokens: the token used for this request is immediately
+        // invalidated before a fresh token pair is issued.
         stored.revoke();
         return createAuthResponse(stored.getUser());
     }
@@ -103,9 +105,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void logout(RefreshTokenRequest request) {
+        String rawToken = normalizeRefreshToken(request);
         refreshTokenRepository
-                .findByTokenHashAndRevokedAtIsNull(hashToken(request.getRefreshToken().trim()))
-                .ifPresent(RefreshToken::revoke);
+                .findByTokenHashAndRevokedAtIsNull(hashToken(rawToken))
+                .ifPresent(token -> {
+                    token.revoke();
+                    log.debug("Refresh token revoked during logout");
+                });
     }
 
     private AuthResponse createAuthResponse(User user) {
@@ -123,6 +129,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private String createRefreshToken(User user) {
+        if (refreshExpirationMs <= 0) {
+            throw new IllegalStateException("JWT refresh expiration must be greater than zero.");
+        }
+
         byte[] bytes = new byte[48];
         secureRandom.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -145,6 +155,17 @@ public class AuthServiceImpl implements AuthService {
         if (value == null) return null;
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeRefreshToken(RefreshTokenRequest request) {
+        if (request == null || request.getRefreshToken() == null) {
+            throw new BadRequestException("Refresh token is required.");
+        }
+        String token = request.getRefreshToken().trim();
+        if (token.isEmpty()) {
+            throw new BadRequestException("Refresh token is required.");
+        }
+        return token;
     }
 
     private String hashToken(String token) {
