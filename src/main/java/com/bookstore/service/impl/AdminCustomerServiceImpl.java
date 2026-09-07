@@ -14,26 +14,31 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminCustomerServiceImpl implements AdminCustomerService {
+
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
 
     @Override
     public Page<AdminCustomerResponse> search(String keyword, Pageable pageable) {
-        String normalized = keyword == null || keyword.isBlank() ? null : keyword.trim();
-        return userRepository.searchByRole(Role.CUSTOMER, normalized, pageable).map(this::toResponse);
+        String normalized = normalizeKeyword(keyword);
+        return userRepository.searchByRole(Role.CUSTOMER, normalized, pageable)
+                .map(this::toResponse);
     }
 
     @Override
     public AdminCustomerDetailResponse getDetail(Long customerId, Pageable pageable) {
+        validateCustomerId(customerId);
+
         User user = userRepository.findById(customerId)
+                .filter(candidate -> candidate.getRole() == Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", customerId));
-        if (user.getRole() != Role.CUSTOMER) {
-            throw new ResourceNotFoundException("Customer", customerId);
-        }
+
         return AdminCustomerDetailResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -41,7 +46,7 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
                 .phone(user.getPhone())
                 .createdAt(user.getCreatedAt())
                 .orderCount(orderRepository.countByUserId(user.getId()))
-                .totalSpent(orderRepository.sumPaidAmountByUserId(user.getId()))
+                .totalSpent(safeTotalSpent(user.getId()))
                 .build();
     }
 
@@ -53,7 +58,26 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
                 .phone(user.getPhone())
                 .createdAt(user.getCreatedAt())
                 .orderCount(orderRepository.countByUserId(user.getId()))
-                .totalSpent(orderRepository.sumPaidAmountByUserId(user.getId()))
+                .totalSpent(safeTotalSpent(user.getId()))
                 .build();
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String normalized = keyword.trim().replaceAll("\\s+", " ");
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private BigDecimal safeTotalSpent(Long userId) {
+        BigDecimal total = orderRepository.sumPaidAmountByUserId(userId);
+        return total == null ? BigDecimal.ZERO : total;
+    }
+
+    private void validateCustomerId(Long customerId) {
+        if (customerId == null || customerId <= 0) {
+            throw new IllegalArgumentException("Customer ID must be greater than zero");
+        }
     }
 }
