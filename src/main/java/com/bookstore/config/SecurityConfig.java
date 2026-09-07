@@ -3,6 +3,7 @@ package com.bookstore.config;
 import com.bookstore.security.CustomUserDetailsService;
 import com.bookstore.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -31,6 +32,9 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthFilter;
 
+    @Value("${security.password.bcrypt-strength:12}")
+    private int bcryptStrength;
+
     @Bean
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -41,7 +45,8 @@ public class SecurityConfig {
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
                 .contentTypeOptions(contentType -> { })
-                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
+                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                .cacheControl(cache -> { }))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST,
                         "/api/auth/register",
@@ -86,6 +91,8 @@ public class SecurityConfig {
             )
             .exceptionHandling(exception -> exception
                 .accessDeniedPage("/error/403"))
+            .sessionManagement(session -> session
+                .sessionFixation(sessionFixation -> sessionFixation.migrateSession()))
             .formLogin(form -> form
                 .loginPage("/auth/login")
                 .loginProcessingUrl("/auth/login")
@@ -97,6 +104,7 @@ public class SecurityConfig {
                 .logoutUrl("/auth/logout")
                 .logoutSuccessUrl("/auth/login?logout=true")
                 .invalidateHttpSession(true)
+                .clearAuthentication(true)
                 .deleteCookies("JSESSIONID")
                 .permitAll()
             )
@@ -107,7 +115,10 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        if (bcryptStrength < 4 || bcryptStrength > 31) {
+            throw new IllegalStateException("security.password.bcrypt-strength must be between 4 and 31.");
+        }
+        return new BCryptPasswordEncoder(bcryptStrength);
     }
 
     @Bean
