@@ -7,11 +7,17 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Build, test and package
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout
@@ -24,14 +30,22 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Run tests
-        run: mvn -B test
-
-      - name: Package application
-        run: mvn -B -DskipTests package
+      - name: Run full Maven verification
+        run: mvn -B -ntp clean verify
 
       - name: Verify production artifact
         run: test -f target/bookstore.jar
 
       - name: Build Docker image
         run: docker build --tag bookstore:ci .
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports/**
+            target/failsafe-reports/**
+          if-no-files-found: ignore
+          retention-days: 7
