@@ -4,7 +4,7 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 
 > **Release: v1.0.0 — Professional Bookstore Platform**
 >
-> The `feature/professional-bookstore-platform` line has completed its professionalization pass. `main` remains the stable integration branch.
+> The professionalization and post-release hardening work has been merged into `main`, which is the stable integration branch.
 
 ## Tech Stack
 
@@ -24,9 +24,10 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - Customer/admin roles
 - JWT authentication
 - Refresh-token rotation and revocation with hashed persisted refresh tokens
-- BCrypt password hashing
+- BCrypt password hashing with configurable cost
 - Method-level authorization
 - Stateless API security
+- Authentication endpoint rate limiting for login, registration and refresh requests
 - Customer/admin ownership boundaries for carts, orders and reviews
 - Customer profile editing and password change flow
 
@@ -94,6 +95,7 @@ A production-oriented full-stack bookstore platform built with Java 21 and Sprin
 - Flyway-managed database migrations
 - Hibernate schema validation
 - Custom 403 / 404 / 500 error pages
+- Hardened security headers including HSTS and Permissions-Policy
 - Docker healthchecks and MySQL startup dependency
 - Actuator health endpoint
 - Production profile with environment-based secrets
@@ -200,7 +202,7 @@ The test profile uses H2 and does not require a running MySQL instance:
 mvn test
 ```
 
-The verified CI suite currently runs **69 automated tests** covering authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
+The verified CI suite currently runs **69 automated tests** covering authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, API error mapping, and security configuration.
 
 ### Docker Compose
 
@@ -239,6 +241,8 @@ GitHub Actions runs the Maven test suite, packages the application artifact, ver
 - Migrated database ownership to Flyway with a baseline migration and Hibernate validation.
 - Added Docker healthchecks and production startup ordering.
 - Added production configuration and safe `.env.example` secret templates.
+- Added authentication rate limiting and expanded security-header hardening.
+- Added regression coverage for authorization, ownership, input validation, security configuration and authentication throttling.
 - Verified 69 automated tests with zero failures or errors.
 - Verified GitHub Actions CI and Docker image builds.
 
