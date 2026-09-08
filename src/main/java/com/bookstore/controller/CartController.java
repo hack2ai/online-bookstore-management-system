@@ -8,8 +8,6 @@ import com.bookstore.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as OpenApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +31,6 @@ public class CartController {
     @GetMapping
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Get my cart", description = "Returns the authenticated customer's current shopping cart.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "200", description = "Cart retrieved successfully"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required")
-    })
     public ResponseEntity<ApiResponse<CartResponse>> getCart(Authentication authentication) {
         return noStore(ApiResponse.success("Cart retrieved successfully.",
                 cartService.getCart(currentUserId(authentication))));
@@ -45,11 +39,6 @@ public class CartController {
     @PostMapping("/items")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Add a book to the cart", description = "Adds the requested book and validates quantity through the service layer.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "200", description = "Book added to cart"),
-            @OpenApiResponse(responseCode = "400", description = "Invalid book or quantity"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required")
-    })
     public ResponseEntity<ApiResponse<CartResponse>> addItem(
             Authentication authentication,
             @Valid @RequestBody CartItemRequest request) {
@@ -60,16 +49,14 @@ public class CartController {
     @PutMapping("/items/{bookId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Update cart quantity", description = "Updates a cart item's quantity. Quantity must be between 1 and 100.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "200", description = "Cart updated successfully"),
-            @OpenApiResponse(responseCode = "400", description = "Invalid quantity or book ID"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required")
-    })
     public ResponseEntity<ApiResponse<CartResponse>> updateItem(
             Authentication authentication,
             @Parameter(name = "bookId", in = ParameterIn.PATH, description = "Book ID", required = true)
             @PathVariable Long bookId,
             @RequestParam int quantity) {
+        if (bookId == null || bookId <= 0) {
+            throw new IllegalArgumentException("Book ID must be greater than zero.");
+        }
         if (quantity < MIN_QUANTITY || quantity > MAX_QUANTITY) {
             throw new IllegalArgumentException("Quantity must be between " + MIN_QUANTITY + " and " + MAX_QUANTITY + ".");
         }
