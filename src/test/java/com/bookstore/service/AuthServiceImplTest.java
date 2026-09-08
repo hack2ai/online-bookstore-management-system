@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,7 +99,7 @@ class AuthServiceImplTest {
 
         assertThat(stored.isRevoked()).isTrue();
         assertThat(response.getAccessToken()).isEqualTo("access");
-        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
+        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
     }
 
     @Test
@@ -114,6 +115,31 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void blankRefreshTokenIsRejectedBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("   ")))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("required");
+        verifyNoInteractions(refreshTokenRepository, jwtUtil, userRepository);
+    }
+
+    @Test
+    void missingRefreshTokenIsRejectedBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.refresh(null))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("required");
+        verifyNoInteractions(refreshTokenRepository, jwtUtil, userRepository);
+    }
+
+    @Test
+    void alreadyRevokedOrMissingRefreshTokenIsRejected() {
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh")))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Invalid refresh token");
+    }
+
+    @Test
     void logoutRevokesActiveRefreshToken() {
         RefreshToken stored = RefreshToken.builder()
                 .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
@@ -123,6 +149,13 @@ class AuthServiceImplTest {
 
         assertThat(stored.isRevoked()).isTrue();
         verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
+    }
+
+    @Test
+    void logoutSilentlyIgnoresBlankToken() {
+        service.logout(new RefreshTokenRequest("   "));
+
+        verifyNoInteractions(refreshTokenRepository);
     }
 
     @Test
