@@ -200,7 +200,7 @@ The test profile uses H2 and does not require a running MySQL instance:
 mvn test
 ```
 
-The current automated suite contains 30 tests covering authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
+The verified CI suite currently runs **69 automated tests** covering authentication, role separation, carts, checkout, coupons, payment idempotency, cancellation/restocking, reviews, and API error mapping.
 
 ### Docker Compose
 
@@ -239,7 +239,7 @@ GitHub Actions runs the Maven test suite, packages the application artifact, ver
 - Migrated database ownership to Flyway with a baseline migration and Hibernate validation.
 - Added Docker healthchecks and production startup ordering.
 - Added production configuration and safe `.env.example` secret templates.
-- Verified 30 automated tests with zero failures or errors.
+- Verified 69 automated tests with zero failures or errors.
 - Verified GitHub Actions CI and Docker image builds.
 
 ## Engineering Principles
