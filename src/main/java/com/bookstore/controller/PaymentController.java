@@ -8,8 +8,6 @@ import com.bookstore.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as OpenApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,16 +28,11 @@ public class PaymentController {
     @PostMapping("/orders/{orderId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Create a payment order", description = "Creates or reuses the payment provider order for the authenticated customer's order.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "200", description = "Payment order created successfully"),
-            @OpenApiResponse(responseCode = "400", description = "Invalid order or payment configuration"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required"),
-            @OpenApiResponse(responseCode = "403", description = "Customer role required")
-    })
     public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(
             Authentication authentication,
             @Parameter(name = "orderId", in = ParameterIn.PATH, description = "Order ID", required = true)
             @PathVariable Long orderId) {
+        validateOrderId(orderId);
         PaymentResponse response = paymentService.createPayment(currentUserId(authentication), orderId);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
@@ -49,17 +42,12 @@ public class PaymentController {
     @PostMapping("/orders/{orderId}/verify")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Verify a payment", description = "Verifies the payment provider signature for the authenticated customer's order.")
-    @ApiResponses({
-            @OpenApiResponse(responseCode = "200", description = "Payment verified successfully"),
-            @OpenApiResponse(responseCode = "400", description = "Invalid payment verification details"),
-            @OpenApiResponse(responseCode = "401", description = "Authentication required"),
-            @OpenApiResponse(responseCode = "403", description = "Customer role required")
-    })
     public ResponseEntity<ApiResponse<PaymentResponse>> verifyPayment(
             Authentication authentication,
             @Parameter(name = "orderId", in = ParameterIn.PATH, description = "Order ID", required = true)
             @PathVariable Long orderId,
             @Valid @RequestBody PaymentVerifyRequest request) {
+        validateOrderId(orderId);
         PaymentResponse response = paymentService.verifyPayment(currentUserId(authentication), orderId, request);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
@@ -72,5 +60,11 @@ public class PaymentController {
             throw new IllegalStateException("Authenticated user context is unavailable.");
         }
         return details.getUser().getId();
+    }
+
+    private void validateOrderId(Long orderId) {
+        if (orderId == null || orderId <= 0) {
+            throw new IllegalArgumentException("Order ID must be greater than zero.");
+        }
     }
 }
