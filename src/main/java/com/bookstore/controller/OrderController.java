@@ -10,7 +10,6 @@ import com.bookstore.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +38,6 @@ public class OrderController {
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Place an order", description = "Creates an order from the authenticated customer's cart and reserves requested stock.")
-    @ApiResponses
     public ResponseEntity<ApiResponse<OrderResponse>> checkout(
             Authentication authentication,
             @Valid @RequestBody CheckoutRequest request) {
