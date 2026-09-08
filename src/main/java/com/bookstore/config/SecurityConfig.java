@@ -1,5 +1,6 @@
 package com.bookstore.config;
 
+import com.bookstore.security.AuthRateLimitingFilter;
 import com.bookstore.security.CustomUserDetailsService;
 import com.bookstore.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthRateLimitingFilter authRateLimitingFilter;
 
     @Value("${security.password.bcrypt-strength:12}")
     private int bcryptStrength;
@@ -65,6 +67,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(authRateLimitingFilter, JwtAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
