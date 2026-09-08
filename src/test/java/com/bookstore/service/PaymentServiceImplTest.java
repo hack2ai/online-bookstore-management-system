@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -35,6 +36,9 @@ class PaymentServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new PaymentServiceImpl(orderRepository, couponService);
+        ReflectionTestUtils.setField(service, "paymentMode", "RAZORPAY");
+        ReflectionTestUtils.setField(service, "keyId", "test-key");
+        ReflectionTestUtils.setField(service, "keySecret", "test-secret");
 
         User user = User.builder().id(1L).name("Test").email("test@example.com")
                 .password("hash").role(Role.CUSTOMER).build();
@@ -88,8 +92,6 @@ class PaymentServiceImplTest {
 
     @Test
     void paymentVerificationRequiresAllFields() {
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
-
         PaymentVerifyRequest request = PaymentVerifyRequest.builder()
                 .razorpayOrderId("order_123")
                 .razorpayPaymentId("")
@@ -99,6 +101,8 @@ class PaymentServiceImplTest {
         assertThatThrownBy(() -> service.verifyPayment(1L, 100L, request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Payment verification details are required");
+
+        verifyNoInteractions(orderRepository);
     }
 
     @Test
