@@ -4,6 +4,7 @@ import com.bookstore.service.BookService;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 
 class BookControllerTest {
@@ -18,13 +19,16 @@ class BookControllerTest {
     }
 
     @Test
+    void acceptsPageSizeWithinAllowedRange() {
+        assertThatCode(() -> controller.search(null, null, 0, 12, "createdAt", "desc"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsPageSizeOutsideAllowedRange() {
         assertThatThrownBy(() -> controller.search(null, null, 0, 101, "createdAt", "desc"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("size must be between 1 and 100");
-
-        assertThatThrownBy(() -> controller.search(null, null, 0, 12, "createdAt", "desc"))
-                .doesNotThrowAnyException();
     }
 
     @Test
