@@ -93,6 +93,23 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void rotatedRefreshTokenCannotBeUsedAgainWhenRepositoryExcludesRevokedTokens() {
+        RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString()))
+                .thenReturn(Optional.of(stored), Optional.empty());
+        when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.refresh(new RefreshTokenRequest("raw-refresh"));
+
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh")))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Invalid refresh token");
+        assertThat(stored.isRevoked()).isTrue();
+        verify(refreshTokenRepository, times(2)).findByTokenHashAndRevokedAtIsNull(anyString());
+    }
+
+    @Test
     void expiredRefreshTokenIsRejectedAndRevoked() {
         RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().minusMinutes(1)).build();
         when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
@@ -131,6 +148,21 @@ class AuthServiceImplTest {
     void logoutSilentlyIgnoresBlankToken() {
         service.logout(new RefreshTokenRequest("   "));
         verifyNoInteractions(refreshTokenRepository);
+    }
+
+    @Test
+    void logoutSilentlyIgnoresMissingToken() {
+        service.logout(null);
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
+    @Test
+    void logoutIgnoresUnknownRefreshToken() {
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.empty());
+
+        service.logout(new RefreshTokenRequest("unknown-refresh"));
+
+        verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
     }
 
     @Test
