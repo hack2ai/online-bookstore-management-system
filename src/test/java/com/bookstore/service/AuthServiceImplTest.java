@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,15 +55,10 @@ class AuthServiceImplTest {
 
     @Test
     void registerNormalizesEmailAndAlwaysCreatesCustomer() {
-        RegisterRequest request = RegisterRequest.builder()
-                .name(" Groot ").email(" Groot@Example.COM ").password("Secret123!").build();
+        RegisterRequest request = RegisterRequest.builder().name(" Groot ").email(" Groot@Example.COM ").password("Secret123!").build();
         when(userRepository.existsByEmail("groot@example.com")).thenReturn(false);
         when(passwordEncoder.encode("Secret123!")).thenReturn("encoded");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User saved = invocation.getArgument(0);
-            saved.setId(7L);
-            return saved;
-        });
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> { User saved = invocation.getArgument(0); saved.setId(7L); return saved; });
         when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -77,19 +73,14 @@ class AuthServiceImplTest {
 
     @Test
     void registerRejectsDuplicateEmail() {
-        RegisterRequest request = RegisterRequest.builder()
-                .name("Groot").email("groot@example.com").password("Secret123!").build();
+        RegisterRequest request = RegisterRequest.builder().name("Groot").email("groot@example.com").password("Secret123!").build();
         when(userRepository.existsByEmail("groot@example.com")).thenReturn(true);
-
-        assertThatThrownBy(() -> service.register(request))
-                .isInstanceOf(DuplicateResourceException.class)
-                .hasMessageContaining("already exists");
+        assertThatThrownBy(() -> service.register(request)).isInstanceOf(DuplicateResourceException.class).hasMessageContaining("already exists");
     }
 
     @Test
     void refreshRevokesOldTokenAndIssuesReplacement() {
-        RefreshToken stored = RefreshToken.builder()
-                .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
+        RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
         when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
         when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -102,26 +93,75 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void expiredRefreshTokenIsRejectedAndRevoked() {
-        RefreshToken stored = RefreshToken.builder()
-                .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().minusMinutes(1)).build();
-        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
+    void rotatedRefreshTokenCannotBeUsedAgainWhenRepositoryExcludesRevokedTokens() {
+        RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString()))
+                .thenReturn(Optional.of(stored), Optional.empty());
+        when(jwtUtil.generateToken(any(CustomUserDetails.class))).thenReturn("access");
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.refresh(new RefreshTokenRequest("raw-refresh"));
 
         assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh")))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("expired");
+                .hasMessageContaining("Invalid refresh token");
+        assertThat(stored.isRevoked()).isTrue();
+        verify(refreshTokenRepository, times(2)).findByTokenHashAndRevokedAtIsNull(anyString());
+    }
+
+    @Test
+    void expiredRefreshTokenIsRejectedAndRevoked() {
+        RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().minusMinutes(1)).build();
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh"))).isInstanceOf(BadRequestException.class).hasMessageContaining("expired");
         assertThat(stored.isRevoked()).isTrue();
     }
 
     @Test
+    void blankRefreshTokenIsRejectedBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("   "))).isInstanceOf(BadRequestException.class).hasMessageContaining("required");
+        verifyNoInteractions(refreshTokenRepository, jwtUtil, userRepository);
+    }
+
+    @Test
+    void missingRefreshTokenIsRejectedBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.refresh(null)).isInstanceOf(BadRequestException.class).hasMessageContaining("required");
+        verifyNoInteractions(refreshTokenRepository, jwtUtil, userRepository);
+    }
+
+    @Test
+    void alreadyRevokedOrMissingRefreshTokenIsRejected() {
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("raw-refresh"))).isInstanceOf(BadRequestException.class).hasMessageContaining("Invalid refresh token");
+    }
+
+    @Test
     void logoutRevokesActiveRefreshToken() {
-        RefreshToken stored = RefreshToken.builder()
-                .id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
+        RefreshToken stored = RefreshToken.builder().id(4L).user(user).tokenHash("hash").expiresAt(LocalDateTime.now().plusHours(1)).build();
         when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.of(stored));
-
         service.logout(new RefreshTokenRequest("raw-refresh"));
-
         assertThat(stored.isRevoked()).isTrue();
+        verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
+    }
+
+    @Test
+    void logoutSilentlyIgnoresBlankToken() {
+        service.logout(new RefreshTokenRequest("   "));
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
+    @Test
+    void logoutSilentlyIgnoresMissingToken() {
+        service.logout(null);
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
+    @Test
+    void logoutIgnoresUnknownRefreshToken() {
+        when(refreshTokenRepository.findByTokenHashAndRevokedAtIsNull(anyString())).thenReturn(Optional.empty());
+
+        service.logout(new RefreshTokenRequest("unknown-refresh"));
+
         verify(refreshTokenRepository).findByTokenHashAndRevokedAtIsNull(anyString());
     }
 

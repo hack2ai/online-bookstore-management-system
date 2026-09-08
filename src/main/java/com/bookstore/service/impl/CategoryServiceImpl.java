@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +22,9 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public List<CategoryResponse> getAll() {
-        return categoryRepository.findAll().stream().map(this::toResponse).toList();
+        return categoryRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override
@@ -34,27 +35,35 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponse create(CategoryRequest request) {
-        String name = normalize(request.getCategoryName());
+        requireRequest(request);
+
+        String name = normalizeName(request.getCategoryName());
         if (categoryRepository.existsByCategoryNameIgnoreCase(name)) {
             throw new DuplicateResourceException("A category named '" + name + "' already exists.");
         }
+
         Category category = Category.builder()
                 .categoryName(name)
                 .description(normalizeOptional(request.getDescription()))
                 .build();
+
         return toResponse(categoryRepository.save(category));
     }
 
     @Override
     @Transactional
     public CategoryResponse update(Long id, CategoryRequest request) {
+        requireRequest(request);
+
         Category category = find(id);
-        String name = normalize(request.getCategoryName());
+        String name = normalizeName(request.getCategoryName());
+
         categoryRepository.findByCategoryNameIgnoreCase(name)
                 .filter(existing -> !existing.getId().equals(id))
                 .ifPresent(existing -> {
                     throw new DuplicateResourceException("A category named '" + name + "' already exists.");
                 });
+
         category.setCategoryName(name);
         category.setDescription(normalizeOptional(request.getDescription()));
         return toResponse(categoryRepository.save(category));
@@ -67,12 +76,16 @@ public class CategoryServiceImpl implements CategoryService {
         long bookCount = categoryRepository.countBooksByCategoryId(id);
         if (bookCount > 0) {
             throw new IllegalStateException(
-                    "Cannot delete category '" + category.getCategoryName() + "' because it contains " + bookCount + " book(s).");
+                    "Cannot delete category '" + category.getCategoryName()
+                            + "' because it contains " + bookCount + " book(s).");
         }
         categoryRepository.delete(category);
     }
 
     private Category find(Long id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("Category ID must be greater than zero");
+        }
         return categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
     }
@@ -86,13 +99,28 @@ public class CategoryServiceImpl implements CategoryService {
                 .build();
     }
 
-    private String normalize(String value) {
-        return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    private void requireRequest(CategoryRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Category request must not be null");
+        }
+    }
+
+    private String normalizeName(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Category name is required");
+        }
+        String normalized = value.trim().replaceAll("\\s+", " ");
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("Category name is required");
+        }
+        return normalized;
     }
 
     private String normalizeOptional(String value) {
-        if (value == null) return null;
-        String normalized = value.trim();
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().replaceAll("\\s+", " ");
         return normalized.isEmpty() ? null : normalized;
     }
 }

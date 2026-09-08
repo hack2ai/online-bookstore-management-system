@@ -5,6 +5,7 @@ import com.bookstore.dto.response.ApiResponse;
 import com.bookstore.dto.response.CategoryResponse;
 import com.bookstore.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,36 +27,56 @@ public class CategoryController {
     @GetMapping
     @Operation(summary = "List all categories")
     public ResponseEntity<ApiResponse<List<CategoryResponse>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success("Categories retrieved successfully.", categoryService.getAll()));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Categories retrieved successfully.", categoryService.getAll()));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a category by ID")
-    public ResponseEntity<ApiResponse<CategoryResponse>> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Category retrieved successfully.", categoryService.getById(id)));
+    public ResponseEntity<ApiResponse<CategoryResponse>> getById(
+            @Parameter(description = "Category database ID", required = true)
+            @PathVariable Long id) {
+        validateId(id);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Category retrieved successfully.", categoryService.getById(id)));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a category")
-    public ResponseEntity<ApiResponse<CategoryResponse>> create(@Valid @RequestBody CategoryRequest request) {
+    public ResponseEntity<ApiResponse<CategoryResponse>> create(
+            @Valid @RequestBody CategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Category created successfully.", categoryService.create(request)));
+                .body(ApiResponse.success(
+                        "Category created successfully.", categoryService.create(request)));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update a category")
     public ResponseEntity<ApiResponse<CategoryResponse>> update(
-            @PathVariable Long id, @Valid @RequestBody CategoryRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Category updated successfully.", categoryService.update(id, request)));
+            @Parameter(description = "Category database ID", required = true)
+            @PathVariable Long id,
+            @Valid @RequestBody CategoryRequest request) {
+        validateId(id);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Category updated successfully.", categoryService.update(id, request)));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an unused category")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @Parameter(description = "Category database ID", required = true)
+            @PathVariable Long id) {
+        validateId(id);
         categoryService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Category deleted successfully."));
+    }
+
+    private void validateId(Long id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("Category ID must be greater than zero");
+        }
     }
 }

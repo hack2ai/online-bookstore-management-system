@@ -18,6 +18,9 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminDashboardServiceImpl implements AdminDashboardService {
+
+    private static final int LOW_STOCK_THRESHOLD = 5;
+
     private final BookRepository bookRepository;
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
@@ -26,14 +29,19 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Override
     public AdminDashboardResponse getDashboard() {
         BigDecimal paidRevenue = orderRepository.sumAllPaidAmount();
+
         return AdminDashboardResponse.builder()
                 .bookCount(bookRepository.count())
                 .categoryCount(categoryRepository.count())
                 .customerCount(userRepository.countByRole(Role.CUSTOMER))
                 .orderCount(orderRepository.count())
                 .pendingOrders(orderRepository.countByStatus(OrderStatus.PENDING))
-                .lowStockBooks(bookRepository.countByStockLessThanEqual(5))
-                .paidRevenue(paidRevenue == null ? BigDecimal.ZERO : paidRevenue)
+                .lowStockBooks(bookRepository.countByStockLessThanEqual(LOW_STOCK_THRESHOLD))
+                .paidRevenue(normalizeAmount(paidRevenue))
                 .build();
+    }
+
+    private BigDecimal normalizeAmount(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
     }
 }

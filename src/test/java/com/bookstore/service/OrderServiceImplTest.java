@@ -1,16 +1,20 @@
 package com.bookstore.service;
 
 import com.bookstore.dto.request.CheckoutRequest;
+import com.bookstore.dto.request.OrderStatusRequest;
+import com.bookstore.dto.response.DiscountResponse;
 import com.bookstore.entity.Book;
 import com.bookstore.entity.Cart;
 import com.bookstore.entity.CartItem;
-import com.bookstore.entity.User;
+import com.bookstore.entity.Order;
+import com.bookstore.entity.OrderItem;
+import com.bookstore.entity.OrderStatus;
 import com.bookstore.entity.Role;
+import com.bookstore.entity.User;
 import com.bookstore.repository.BookRepository;
 import com.bookstore.repository.CartRepository;
 import com.bookstore.repository.OrderRepository;
 import com.bookstore.repository.UserRepository;
-import com.bookstore.dto.response.DiscountResponse;
 import com.bookstore.service.impl.OrderServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,9 +22,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +72,7 @@ class OrderServiceImplTest {
         assertThat(cart.getItems()).isEmpty();
         verify(cartRepository).save(cart);
 
-        ArgumentCaptor<com.bookstore.entity.Order> captor = ArgumentCaptor.forClass(com.bookstore.entity.Order.class);
+        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(captor.capture());
         assertThat(captor.getValue().getOrderItems()).hasSize(1);
         assertThat(captor.getValue().getOrderItems().getFirst().getPrice()).isEqualByComparingTo("500.00");
@@ -117,5 +123,93 @@ class OrderServiceImplTest {
         assertThatThrownBy(() -> service.placeOrder(1L, CheckoutRequest.builder().shippingAddress("Bengaluru").build()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("cart is empty");
+    }
+
+    @Test
+    void checkoutRejectsInvalidUserIdBeforeRepositoryAccess() {
+        assertThatThrownBy(() -> service.placeOrder(0L, CheckoutRequest.builder().shippingAddress("Bengaluru").build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User ID must be greater than zero");
+        verifyNoInteractions(cartRepository, userRepository, bookRepository, orderRepository, couponService);
+    }
+
+    @Test
+    void checkoutRejectsBlankShippingAddress() {
+        assertThatThrownBy(() -> service.placeOrder(1L, CheckoutRequest.builder().shippingAddress("   ").build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Shipping address is required");
+        verifyNoInteractions(cartRepository, userRepository, bookRepository, orderRepository, couponService);
+    }
+
+    @Test
+    void cancelPendingOrderRestoresStockAndReleasesCoupon() {
+        Book book = Book.builder().id(10L).title("Clean Code").price(new BigDecimal("500.00")).stock(3).build();
+        Order order = Order.builder().id(100L).user(user).status(OrderStatus.PENDING)
+                .couponCode("SAVE20").discountAmount(new BigDecimal("100.00")).build();
+        OrderItem item = OrderItem.builder().order(order).book(book).quantity(2).price(new BigDecimal("500.00")).build();
+        order.setOrderItems(new ArrayList<>(List.of(item)));
+
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(bookRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(book));
+
+        service.cancelOrder(1L, 100L);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(book.getStock()).isEqualTo(5);
+        verify(couponService).releaseReservation(1L, "SAVE20");
+    }
+
+    @Test
+    void cannotCancelShippedOrder() {
+        Order order = Order.builder().id(100L).user(user).status(OrderStatus.SHIPPED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.cancelOrder(1L, 100L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Only pending or confirmed orders can be cancelled");
+        verifyNoInteractions(bookRepository, couponService);
+    }
+
+    @Test
+    void validatesOrderStatusTransitions() {
+        Order order = Order.builder().id(100L).user(user).status(OrderStatus.PENDING).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.updateStatus(100L, OrderStatus.CONFIRMED);
+
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void rejectsInvalidOrderStatusTransition() {
+        Order order = Order.builder().id(100L).user(user).status(OrderStatus.PENDING).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.updateStatus(100L, OrderStatus.DELIVERED))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid order status transition");
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void getMyOrderRejectsOrdersOwnedByAnotherUser() {
+        User otherUser = User.builder().id(2L).name("Other").email("other@example.com")
+                .password("hash").role(Role.CUSTOMER).build();
+        Order order = Order.builder().id(100L).user(otherUser).status(OrderStatus.CONFIRMED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.getMyOrder(1L, 100L))
+                .isInstanceOf(com.bookstore.exception.ResourceNotFoundException.class)
+                .hasMessageContaining("Order");
+    }
+
+    @Test
+    void getMyOrdersRejectsInvalidUserId() {
+        assertThatThrownBy(() -> service.getMyOrders(0L, PageRequest.of(0, 20)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User ID must be greater than zero");
+        verifyNoInteractions(orderRepository);
     }
 }

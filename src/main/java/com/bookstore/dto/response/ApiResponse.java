@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * Uniform envelope for every API response so clients always get the same shape:
@@ -44,10 +45,27 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    public static <T> ApiResponse<T> error(String message, T data) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .message(message)
+                .data(data)
+                .build();
+    }
+
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
                 .message(message)
+                .build();
+    }
+
+    public static ApiResponse<Map<String, String>> validationError(
+            String message, Map<String, String> errors) {
+        return ApiResponse.<Map<String, String>>builder()
+                .success(false)
+                .message(message)
+                .data(errors)
                 .build();
     }
 }

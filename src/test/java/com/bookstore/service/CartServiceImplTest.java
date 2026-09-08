@@ -65,6 +65,25 @@ class CartServiceImplTest {
     }
 
     @Test
+    void addItemCreatesMissingCartForExistingUser() {
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> {
+            Cart cart = invocation.getArgument(0);
+            if (cart.getId() == null) cart.setId(20L);
+            return cart;
+        });
+        when(bookRepository.findById(10L)).thenReturn(Optional.of(book));
+        when(cartItemRepository.findByCartIdAndBookId(20L, 10L)).thenReturn(Optional.empty());
+
+        CartResponse response = service.addItem(1L, CartItemRequest.builder().bookId(10L).quantity(1).build());
+
+        assertThat(response.getItemCount()).isEqualTo(1);
+        verify(userRepository).findById(1L);
+        verify(cartRepository, atLeastOnce()).save(any(Cart.class));
+    }
+
+    @Test
     void addExistingItemMergesQuantityInsteadOfCreatingDuplicate() {
         Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
         CartItem existing = CartItem.builder().book(book).quantity(2).build();
@@ -95,9 +114,134 @@ class CartServiceImplTest {
     }
 
     @Test
+    void addItemRejectsNullQuantity() {
+        assertThatThrownBy(() -> service.addItem(1L, CartItemRequest.builder().bookId(10L).quantity(null).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Quantity is required");
+        verifyNoInteractions(cartRepository, bookRepository, cartItemRepository, userRepository);
+    }
+
+    @Test
+    void addItemRejectsInvalidBookId() {
+        assertThatThrownBy(() -> service.addItem(1L, CartItemRequest.builder().bookId(0L).quantity(1).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Book ID must be greater than zero");
+        verifyNoInteractions(cartRepository, bookRepository, cartItemRepository, userRepository);
+    }
+
+    @Test
+    void addItemRejectsInvalidUserId() {
+        assertThatThrownBy(() -> service.addItem(0L, CartItemRequest.builder().bookId(10L).quantity(1).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User ID must be greater than zero");
+        verifyNoInteractions(cartRepository, bookRepository, cartItemRepository, userRepository);
+    }
+
+    @Test
+    void updateItemChangesQuantity() {
+        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
+        CartItem item = CartItem.builder().book(book).quantity(2).build();
+        cart.getItems().add(item);
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartIdAndBookId(20L, 10L)).thenReturn(Optional.of(item));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CartResponse response = service.updateItem(1L, 10L, 4);
+
+        assertThat(item.getQuantity()).isEqualTo(4);
+        assertThat(response.getItemCount()).isEqualTo(4);
+        verify(cartRepository).save(cart);
+    }
+
+    @Test
     void updateItemRejectsQuantityAboveMaximum() {
         assertThatThrownBy(() -> service.updateItem(1L, 10L, 101))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("between 1 and 100");
+        verifyNoInteractions(cartRepository, cartItemRepository, bookRepository, userRepository);
+    }
+
+    @Test
+    void updateItemRejectsMissingCartItem() {
+        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartIdAndBookId(20L, 10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.updateItem(1L, 10L, 2))
+                .isInstanceOf(com.bookstore.exception.ResourceNotFoundException.class)
+                .hasMessageContaining("Cart item for book");
+    }
+
+    @Test
+    void updateItemRejectsInsufficientStock() {
+        book.setStock(2);
+        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
+        CartItem item = CartItem.builder().book(book).quantity(1).build();
+        cart.getItems().add(item);
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartIdAndBookId(20L, 10L)).thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> service.updateItem(1L, 10L, 3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only 2 unit(s)");
+        verify(cartRepository, never()).save(any());
+    }
+
+    @Test
+    void removeItemDeletesItemFromCart() {
+        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
+        CartItem item = CartItem.builder().book(book).quantity(2).build();
+        cart.getItems().add(item);
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartIdAndBookId(20L, 10L)).thenReturn(Optional.of(item));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.removeItem(1L, 10L);
+
+        assertThat(cart.getItems()).isEmpty();
+        verify(cartRepository).save(cart);
+    }
+
+    @Test
+    void clearCartRemovesAllItems() {
+        Cart cart = Cart.builder().id(20L).user(user).items(new ArrayList<>()).build();
+        cart.getItems().add(CartItem.builder().book(book).quantity(2).build());
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.clearCart(1L);
+
+        assertThat(cart.getItems()).isEmpty();
+        verify(cartRepository).save(cart);
+    }
+
+    @Test
+    void getCartReturnsEmptyResponseWhenCartDoesNotExist() {
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        CartResponse response = service.getCart(1L);
+
+        assertThat(response.getCartId()).isNull();
+        assertThat(response.getItemCount()).isZero();
+        assertThat(response.getSubtotal()).isEqualByComparingTo("0.00");
+        assertThat(response.getItems()).isEmpty();
+        verifyNoInteractions(userRepository, bookRepository, cartItemRepository);
+    }
+
+    @Test
+    void getCartRejectsInvalidUserId() {
+        assertThatThrownBy(() -> service.getCart(0L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User ID must be greater than zero");
+        verifyNoInteractions(cartRepository, userRepository, bookRepository, cartItemRepository);
+    }
+
+    @Test
+    void clearCartRejectsMissingCart() {
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.clearCart(1L))
+                .isInstanceOf(com.bookstore.exception.ResourceNotFoundException.class)
+                .hasMessageContaining("Cart for user");
     }
 }

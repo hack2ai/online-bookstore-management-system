@@ -10,6 +10,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -18,27 +19,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Runs once per request (extends {@link OncePerRequestFilter}).
- *
- * Logic:
- *  1. Extract "Authorization: Bearer <token>" header.
- *  2. If absent or malformed — do nothing; let the request proceed. Spring
- *     Security will block it at the access-control level if the endpoint
- *     requires authentication. We never short-circuit here because public
- *     endpoints (register, login, GET /api/books) must still pass through.
- *  3. Validate the token via {@link JwtUtil#validateToken}.
- *  4. Load the user from the DB (needed to get full authorities).
- *  5. Set the {@link org.springframework.security.core.Authentication} into
- *     {@link SecurityContextHolder} so downstream filters and controllers
- *     see an authenticated principal.
- *
- * This filter is added BEFORE {@code UsernamePasswordAuthenticationFilter}
- * in {@link com.bookstore.config.SecurityConfig}.
+ * Resolves an optional Bearer JWT and places an authenticated principal in the
+ * Spring Security context when the token and corresponding user are valid.
+ * Invalid JWTs are deliberately left to the security rules so public routes
+ * can continue normally while protected routes receive the appropriate denial.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
@@ -51,33 +43,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String jwt = extractJwtFromRequest(request);
 
-        if (jwt == null) {
+        if (jwt == null || !jwtUtil.validateToken(jwt)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if (!jwtUtil.validateToken(jwt)) {
-            // validateToken already logged the specific failure reason
-            filterChain.doFilter(request, response);
-            return;
-        }
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                final String email = jwtUtil.extractUsername(jwt);
 
-        final String email = jwtUtil.extractUsername(jwt);
+                if (StringUtils.hasText(email)) {
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-        // Only set authentication if not already set (avoids redundant DB hits
-        // when multiple filters/interceptors touch the same request)
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-
-            if (jwtUtil.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                log.debug("Authenticated user '{}' via JWT for request: {}", email, request.getRequestURI());
+                    if (jwtUtil.isTokenValid(jwt, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities());
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                        log.debug("JWT authentication accepted for request {}", request.getRequestURI());
+                    }
+                }
+            } catch (UsernameNotFoundException ex) {
+                // A valid token for a deleted/unknown account must not become a
+                // server error. Leave the request unauthenticated.
+                log.debug("JWT subject does not map to an existing user");
+            } catch (RuntimeException ex) {
+                // Never turn token parsing/user lookup issues into an unexpected
+                // 500 response from the authentication filter.
+                log.debug("JWT authentication could not be established: {}", ex.getClass().getSimpleName());
+                SecurityContextHolder.clearContext();
             }
         }
 
@@ -85,16 +82,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Pulls the raw token string out of the Authorization header.
-     * Returns null (not throwing) for missing/malformed headers so the
-     * filter can silently pass unauthenticated requests through to public
-     * endpoints.
+     * Returns the trimmed token from a valid Bearer Authorization header.
+     * Missing, malformed, or blank headers are treated as unauthenticated.
      */
     private String extractJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+        String authorization = request.getHeader(AUTHORIZATION_HEADER);
+        if (!StringUtils.hasText(authorization) || !authorization.startsWith(BEARER_PREFIX)) {
+            return null;
         }
-        return null;
+
+        String token = authorization.substring(BEARER_PREFIX.length()).trim();
+        return StringUtils.hasText(token) ? token : null;
     }
 }
