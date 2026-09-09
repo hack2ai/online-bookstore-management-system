@@ -10,20 +10,12 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * The payment attempt/result for exactly one {@link Order}.
+ * The payment result for exactly one {@link Order}.
  *
- * <p>One row per order (not per attempt): if a payment fails and the customer
- * retries, {@code PaymentServiceImpl} updates this same row's
- * {@code status}/{@code transactionId} rather than inserting a second row,
- * since the spec's schema has no order-to-many-payments relationship and a
- * 1:1 keeps "what did this order's payment end up being" a single
- * unambiguous lookup.
- *
- * <p>{@code transactionId} comes from Razorpay's {@code order_id} /
- * {@code payment_id} in live mode, or a generated {@code "MOCK-" + UUID}
- * value when running in mock mode (see {@code PaymentGatewayService},
- * added in Stage 4) — either way it's an opaque external reference, not
- * something this entity interprets.
+ * <p>The provider order ID and the final transaction/payment ID are stored
+ * separately because a gateway order is not the same thing as a captured
+ * payment transaction. This preserves enough state for safe verification
+ * retries and idempotent responses.</p>
  */
 @Entity
 @Table(name = "payments")
@@ -51,6 +43,9 @@ public class Payment {
     @Column(name = "payment_status", nullable = false, length = 20)
     @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.CREATED;
+
+    @Column(name = "provider_order_id", length = 100)
+    private String providerOrderId;
 
     @Column(name = "transaction_id", length = 100)
     private String transactionId;

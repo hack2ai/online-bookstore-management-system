@@ -46,7 +46,10 @@ class PaymentServiceImplTest {
                 .discountAmount(BigDecimal.ZERO).totalAmount(new BigDecimal("800.00"))
                 .shippingAddress("Bengaluru").status(OrderStatus.PENDING).build();
         Payment payment = Payment.builder().order(order).paymentMethod("RAZORPAY")
-                .paymentStatus(PaymentStatus.SUCCESS).transactionId("order_123").build();
+                .paymentStatus(PaymentStatus.SUCCESS)
+                .providerOrderId("order_123")
+                .transactionId("pay_123")
+                .build();
         order.setPayment(payment);
     }
 
@@ -59,6 +62,8 @@ class PaymentServiceImplTest {
                         .razorpayPaymentId("pay_123").razorpaySignature("signature").build());
 
         assertThat(response.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(response.getRazorpayOrderId()).isEqualTo("order_123");
+        assertThat(response.getTransactionId()).isEqualTo("pay_123");
         verify(orderRepository, never()).save(any());
     }
 
