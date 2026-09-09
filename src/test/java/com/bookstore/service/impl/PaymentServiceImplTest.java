@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -44,6 +45,21 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void mockCreatePaymentStoresProviderOrderIdAndLeavesTransactionUnset() {
+        Order order = order(77L, 20L, OrderStatus.PENDING, new BigDecimal("499.00"));
+        when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
+
+        var response = paymentService.createPayment(20L, 77L);
+
+        assertThat(response.getRazorpayOrderId()).isEqualTo("mock-order-77");
+        assertThat(response.getTransactionId()).isNull();
+        assertThat(order.getPayment().getProviderOrderId()).isEqualTo("mock-order-77");
+        assertThat(order.getPayment().getTransactionId()).isNull();
+        assertThat(order.getPayment().getPaymentStatus()).isEqualTo(PaymentStatus.CREATED);
+        verify(orderRepository).save(order);
+    }
+
+    @Test
     void customerCannotCreatePaymentForAnotherCustomersOrder() {
         Order order = order(77L, 10L, OrderStatus.PENDING, new BigDecimal("499.00"));
         when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
@@ -61,11 +77,7 @@ class PaymentServiceImplTest {
         order.setPayment(payment("mock-order-77", PaymentStatus.CREATED));
         when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
 
-        PaymentVerifyRequest request = PaymentVerifyRequest.builder()
-                .razorpayOrderId("mock-order-77")
-                .razorpayPaymentId("mock-payment-77")
-                .razorpaySignature("signature")
-                .build();
+        PaymentVerifyRequest request = verifyRequest("mock-order-77");
 
         assertThatThrownBy(() -> paymentService.verifyPayment(20L, 77L, request))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -78,15 +90,38 @@ class PaymentServiceImplTest {
         order.setPayment(payment("mock-order-77", PaymentStatus.CREATED));
         when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
 
-        PaymentVerifyRequest request = PaymentVerifyRequest.builder()
-                .razorpayOrderId("mock-order-999")
-                .razorpayPaymentId("mock-payment-77")
-                .razorpaySignature("signature")
-                .build();
-
-        assertThatThrownBy(() -> paymentService.verifyPayment(20L, 77L, request))
+        assertThatThrownBy(() -> paymentService.verifyPayment(20L, 77L, verifyRequest("mock-order-999")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Mock payment order ID does not match this order.");
+    }
+
+    @Test
+    void successfulMockVerificationSeparatesOrderAndTransactionIds() {
+        Order order = order(77L, 20L, OrderStatus.PENDING, new BigDecimal("499.00"));
+        order.setPayment(payment("mock-order-77", PaymentStatus.CREATED));
+        when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
+
+        var response = paymentService.verifyPayment(20L, 77L, verifyRequest("mock-order-77"));
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(order.getPayment().getProviderOrderId()).isEqualTo("mock-order-77");
+        assertThat(order.getPayment().getTransactionId()).isEqualTo("mock-payment-77");
+        assertThat(order.getPayment().getPaymentStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(response.getRazorpayOrderId()).isEqualTo("mock-order-77");
+        assertThat(response.getTransactionId()).isEqualTo("mock-payment-77");
+    }
+
+    @Test
+    void repeatedCreatePaymentReusesExistingProviderOrderId() {
+        Order order = order(77L, 20L, OrderStatus.PENDING, new BigDecimal("499.00"));
+        order.setPayment(payment("mock-order-77", PaymentStatus.CREATED));
+        when(orderRepository.findById(77L)).thenReturn(Optional.of(order));
+
+        var response = paymentService.createPayment(20L, 77L);
+
+        assertThat(response.getRazorpayOrderId()).isEqualTo("mock-order-77");
+        assertThat(response.getTransactionId()).isNull();
+        verifyNoInteractions(couponService);
     }
 
     @Test
@@ -114,10 +149,18 @@ class PaymentServiceImplTest {
                 .build();
     }
 
-    private Payment payment(String transactionId, PaymentStatus status) {
+    private Payment payment(String providerOrderId, PaymentStatus status) {
         return Payment.builder()
-                .transactionId(transactionId)
+                .providerOrderId(providerOrderId)
                 .paymentStatus(status)
+                .build();
+    }
+
+    private PaymentVerifyRequest verifyRequest(String orderId) {
+        return PaymentVerifyRequest.builder()
+                .razorpayOrderId(orderId)
+                .razorpayPaymentId("mock-payment-77")
+                .razorpaySignature("signature")
                 .build();
     }
 }
