@@ -1,9 +1,11 @@
 package com.bookstore.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,8 +23,11 @@ public class BookRequest {
     @NotBlank @Size(max = 150) private String author;
     @NotBlank @Size(max = 20) private String isbn;
     @Size(max = 2000) private String description;
-    @NotNull @DecimalMin(value = "0.00") private BigDecimal price;
+    @NotNull
+    @DecimalMin(value = "0.00")
+    @Digits(integer = 8, fraction = 2)
+    private BigDecimal price;
     @NotNull @Min(0) private Integer stock;
     @Size(max = 500) private String imageUrl;
-    @NotNull private Long categoryId;
+    @NotNull @Positive private Long categoryId;
 }
