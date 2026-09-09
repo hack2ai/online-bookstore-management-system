@@ -58,11 +58,11 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment payment = order.getPayment();
         if (payment != null && payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            return response(order, payment, payment.getTransactionId());
+            return response(order, payment, payment.getProviderOrderId());
         }
         if (payment != null && payment.getPaymentStatus() == PaymentStatus.CREATED
-                && payment.getTransactionId() != null && !payment.getTransactionId().isBlank()) {
-            return response(order, payment, payment.getTransactionId());
+                && payment.getProviderOrderId() != null && !payment.getProviderOrderId().isBlank()) {
+            return response(order, payment, payment.getProviderOrderId());
         }
 
         if (MOCK_MODE.equals(mode)) {
@@ -73,9 +73,10 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setPaymentMethod(MOCK_METHOD);
             }
             payment.setPaymentStatus(PaymentStatus.CREATED);
-            payment.setTransactionId("mock-order-" + order.getId());
+            payment.setProviderOrderId("mock-order-" + order.getId());
+            payment.setTransactionId(null);
             orderRepository.save(order);
-            return response(order, payment, payment.getTransactionId());
+            return response(order, payment, payment.getProviderOrderId());
         }
 
         requireRazorpayConfiguration();
@@ -100,7 +101,8 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setPaymentMethod(RAZORPAY_METHOD);
             }
             payment.setPaymentStatus(PaymentStatus.CREATED);
-            payment.setTransactionId(razorpayOrderId);
+            payment.setProviderOrderId(razorpayOrderId);
+            payment.setTransactionId(null);
             orderRepository.save(order);
 
             return response(order, payment, razorpayOrderId);
@@ -120,7 +122,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Order order = findOwnedOrder(userId, orderId);
         Payment payment = order.getPayment();
-        if (payment == null || payment.getTransactionId() == null || payment.getTransactionId().isBlank()) {
+        if (payment == null || payment.getProviderOrderId() == null || payment.getProviderOrderId().isBlank()) {
             throw new IllegalStateException("No payment has been created for this order.");
         }
 
@@ -135,16 +137,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         requireRazorpayConfiguration();
 
-        if (!payment.getTransactionId().equals(request.getRazorpayOrderId().trim())) {
+        String requestedOrderId = request.getRazorpayOrderId().trim();
+        if (!payment.getProviderOrderId().equals(requestedOrderId)) {
             throw new IllegalStateException("Payment order ID does not match this order.");
         }
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            return response(order, payment, request.getRazorpayOrderId().trim());
+            return response(order, payment, requestedOrderId);
         }
 
         try {
             JSONObject attributes = new JSONObject()
-                    .put("razorpay_order_id", request.getRazorpayOrderId().trim())
+                    .put("razorpay_order_id", requestedOrderId)
                     .put("razorpay_payment_id", request.getRazorpayPaymentId().trim())
                     .put("razorpay_signature", request.getRazorpaySignature().trim());
             com.razorpay.Utils.verifyPaymentSignature(attributes, keySecret.trim());
@@ -155,7 +158,7 @@ public class PaymentServiceImpl implements PaymentService {
                 order.setStatus(OrderStatus.CONFIRMED);
             }
             orderRepository.save(order);
-            return response(order, payment, request.getRazorpayOrderId().trim());
+            return response(order, payment, requestedOrderId);
         } catch (Exception ex) {
             markPaymentFailed(order, payment, userId);
             throw new IllegalStateException("Payment signature verification failed.");
@@ -164,7 +167,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private PaymentResponse verifyMockPayment(Order order, Payment payment, PaymentVerifyRequest request) {
         String requestedOrderId = request.getRazorpayOrderId().trim();
-        if (!payment.getTransactionId().equals(requestedOrderId)) {
+        if (!payment.getProviderOrderId().equals(requestedOrderId)) {
             throw new IllegalStateException("Mock payment order ID does not match this order.");
         }
         payment.setPaymentStatus(PaymentStatus.SUCCESS);
@@ -198,10 +201,10 @@ public class PaymentServiceImpl implements PaymentService {
         return order;
     }
 
-    private PaymentResponse response(Order order, Payment payment, String razorpayOrderId) {
+    private PaymentResponse response(Order order, Payment payment, String providerOrderId) {
         return PaymentResponse.builder()
                 .orderId(order.getId())
-                .razorpayOrderId(razorpayOrderId)
+                .razorpayOrderId(providerOrderId)
                 .transactionId(payment.getTransactionId())
                 .status(payment.getPaymentStatus())
                 .build();
