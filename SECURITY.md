@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes are developed against the active professionalization branch until it is promoted to `main`.
+Security fixes are developed and released against the active `main` branch. Older releases may receive fixes only when explicitly maintained by the project.
 
 ## Reporting a vulnerability
 
@@ -27,7 +27,7 @@ Never include real passwords, JWT secrets, Razorpay credentials, database creden
 
 ## Authentication and authorization
 
-The application uses Spring Security, BCrypt password hashing, JWT access/refresh tokens, and role-based authorization. Admin-only operations must remain protected by server-side authorization; UI visibility is not a security boundary.
+The application uses Spring Security, BCrypt password hashing, JWT access/refresh tokens, and role-based authorization. Authentication endpoints are rate-limited as a defense-in-depth control. Admin-only operations must remain protected by server-side authorization; UI visibility is not a security boundary.
 
 ## Production checklist
 
@@ -37,8 +37,9 @@ Before deployment:
 2. Set a random JWT secret of at least 32 bytes.
 3. Configure real Razorpay credentials only through the deployment secret store.
 4. Use HTTPS at the edge/reverse proxy.
-5. Run database migrations explicitly; do not rely on demo seed data.
+5. Allow Flyway to apply the versioned database migrations during application startup and keep Hibernate schema validation enabled.
 6. Disable or restrict development/demo accounts and data.
 7. Verify `/actuator/health` is reachable only where appropriate for the deployment environment.
 8. Confirm backups, monitoring, and log retention are configured.
 9. Run the full CI test suite before release.
+10. Follow `DEPLOYMENT.md` for the production deployment and rollback procedure.
