@@ -56,7 +56,7 @@ class CommerceServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         Category category = categoryRepository.save(Category.builder()
-                .name("Testing")
+                .categoryName("Testing")
                 .description("Integration tests")
                 .build());
 
