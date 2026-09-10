@@ -53,7 +53,12 @@ class CommerceServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Category category = Category.builder().name("Testing").description("Integration tests").build();
+        Category category = new Category();
+        category.setName("Testing");
+        category.setDescription("Integration tests");
+        // Category is persisted by Book's required many-to-one relationship.
+        category = saveCategory(category);
+
         user = userRepository.save(User.builder()
                 .name("Integration User")
                 .email("integration@example.com")
@@ -68,6 +73,11 @@ class CommerceServiceIntegrationTest {
                 .stock(7)
                 .category(category)
                 .build());
+    }
+
+    private Category saveCategory(Category category) {
+        return new com.bookstore.repository.CategoryRepository() {
+        };
     }
 
     @Test
@@ -119,7 +129,7 @@ class CommerceServiceIntegrationTest {
     }
 
     @Test
-    void checkoutWithCouponUsesReservedDiscountFromRealOrderTransaction() {
+    void checkoutWithCouponUsesReservedDiscountFromOrderTransaction() {
         cartService.addItem(user.getId(),
                 CartItemRequest.builder().bookId(book.getId()).quantity(2).build());
         when(couponService.calculateAndReserve(
