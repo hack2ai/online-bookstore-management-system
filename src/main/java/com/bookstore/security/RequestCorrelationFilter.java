@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -16,7 +17,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Adds a bounded, response-visible correlation ID to every request.
+ * Adds a bounded correlation ID and safe request lifecycle logging to every request.
  *
  * <p>Client supplied IDs are accepted only when they match the safe format below;
  * otherwise a new UUID is generated. The value is placed in SLF4J MDC so every
@@ -25,6 +26,7 @@ import java.util.regex.Pattern;
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@Slf4j
 public class RequestCorrelationFilter extends OncePerRequestFilter {
 
     public static final String HEADER_NAME = "X-Request-ID";
@@ -47,10 +49,14 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
         String requestId = sanitizeIncomingId(request.getHeader(HEADER_NAME));
         MDC.put(MDC_KEY, requestId);
         response.setHeader(HEADER_NAME, requestId);
+        long startedAt = System.nanoTime();
 
         try {
             filterChain.doFilter(request, response);
         } finally {
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
+            log.info("HTTP {} {} -> {} ({} ms)",
+                    request.getMethod(), request.getRequestURI(), response.getStatus(), durationMs);
             MDC.remove(MDC_KEY);
         }
     }
