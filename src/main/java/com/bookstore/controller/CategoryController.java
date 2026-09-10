@@ -6,6 +6,7 @@ import com.bookstore.dto.response.CategoryResponse;
 import com.bookstore.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class CategoryController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a category")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<CategoryResponse>> create(
             @Valid @RequestBody CategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -54,6 +56,7 @@ public class CategoryController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update a category")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<CategoryResponse>> update(
             @Parameter(description = "Category database ID", required = true)
             @PathVariable Long id,
@@ -66,6 +69,7 @@ public class CategoryController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an unused category")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> delete(
             @Parameter(description = "Category database ID", required = true)
             @PathVariable Long id) {
