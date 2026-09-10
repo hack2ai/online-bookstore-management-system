@@ -14,6 +14,7 @@ import com.bookstore.entity.Role;
 import com.bookstore.entity.User;
 import com.bookstore.repository.BookRepository;
 import com.bookstore.repository.CartRepository;
+import com.bookstore.repository.CategoryRepository;
 import com.bookstore.repository.OrderRepository;
 import com.bookstore.repository.UserRepository;
 import com.bookstore.service.CouponService;
@@ -41,6 +42,7 @@ class CommerceServiceIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired BookRepository bookRepository;
     @Autowired CartRepository cartRepository;
+    @Autowired CategoryRepository categoryRepository;
     @Autowired OrderRepository orderRepository;
     @Autowired CartServiceImpl cartService;
     @Autowired OrderServiceImpl orderService;
@@ -53,11 +55,10 @@ class CommerceServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Category category = new Category();
-        category.setName("Testing");
-        category.setDescription("Integration tests");
-        // Category is persisted by Book's required many-to-one relationship.
-        category = saveCategory(category);
+        Category category = categoryRepository.save(Category.builder()
+                .name("Testing")
+                .description("Integration tests")
+                .build());
 
         user = userRepository.save(User.builder()
                 .name("Integration User")
@@ -73,11 +74,6 @@ class CommerceServiceIntegrationTest {
                 .stock(7)
                 .category(category)
                 .build());
-    }
-
-    private Category saveCategory(Category category) {
-        return new com.bookstore.repository.CategoryRepository() {
-        };
     }
 
     @Test
