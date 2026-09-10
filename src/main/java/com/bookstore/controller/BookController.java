@@ -6,6 +6,7 @@ import com.bookstore.dto.response.BookResponse;
 import com.bookstore.service.BookService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,6 +76,7 @@ public class BookController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Create a book (admin)")
     public ResponseEntity<ApiResponse<BookResponse>> create(@Valid @RequestBody BookRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -83,6 +85,7 @@ public class BookController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update a book (admin)")
     public ResponseEntity<ApiResponse<BookResponse>> update(
             @PathVariable Long id,
@@ -94,6 +97,7 @@ public class BookController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Delete a book (admin)")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         validateId(id, "Book ID");
