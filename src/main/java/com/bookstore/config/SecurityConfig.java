@@ -75,8 +75,10 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(authRateLimitingFilter, JwtAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            // Register JwtAuthenticationFilter first so Spring Security can assign
+            // it an order; then place the authentication rate limiter directly before it.
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(authRateLimitingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
