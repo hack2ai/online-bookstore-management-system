@@ -7,7 +7,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
-    OrderResponse placeOrder(Long userId, CheckoutRequest request);
+    default OrderResponse placeOrder(Long userId, CheckoutRequest request) {
+        return placeOrder(userId, request, null);
+    }
+
+    OrderResponse placeOrder(Long userId, CheckoutRequest request, String idempotencyKey);
     Page<OrderResponse> getMyOrders(Long userId, Pageable pageable);
     OrderResponse getMyOrder(Long userId, Long orderId);
     OrderResponse getOrder(Long orderId);
