@@ -11,7 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders",
+        uniqueConstraints = @UniqueConstraint(name = "uk_orders_user_idempotency", columnNames = {"user_id", "idempotency_key"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @ToString(exclude = {"user", "orderItems", "payment"})
 public class Order {
@@ -41,6 +42,9 @@ public class Order {
     @NotNull
     @Column(name = "shipping_address", nullable = false, length = 500)
     private String shippingAddress;
+
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
