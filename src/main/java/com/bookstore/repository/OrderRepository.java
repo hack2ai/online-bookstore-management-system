@@ -10,10 +10,12 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByUserId(Long userId, Pageable pageable);
     Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+    Optional<Order> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
     long countByStatus(OrderStatus status);
     long countByUserId(Long userId);
 
