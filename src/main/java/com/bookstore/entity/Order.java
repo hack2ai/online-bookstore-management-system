@@ -22,6 +22,9 @@ public class Order {
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_orders_user"))
     private User user;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     @NotNull
     @Column(name = "subtotal_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotalAmount;
