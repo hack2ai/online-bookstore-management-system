@@ -2,20 +2,35 @@ package com.bookstore.repository;
 
 import com.bookstore.entity.Order;
 import com.bookstore.entity.OrderStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByUserId(Long userId, Pageable pageable);
     Page<Order> findByStatus(OrderStatus status, Pageable pageable);
     long countByStatus(OrderStatus status);
     long countByUserId(Long userId);
+
+    /**
+     * Serializes concurrent payment operations for the same order.
+     *
+     * <p>The lock protects the read-check-write lifecycle used by payment
+     * creation and verification, preventing two concurrent requests from
+     * both observing an incomplete payment state and creating duplicate
+     * provider orders or conflicting payment transitions.</p>
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :orderId")
+    Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
 
     @Query("select coalesce(sum(o.totalAmount), 0) from Order o join o.payment p where o.user.id = :userId and p.paymentStatus = com.bookstore.entity.PaymentStatus.SUCCESS")
     BigDecimal sumPaidAmountByUserId(@Param("userId") Long userId);
