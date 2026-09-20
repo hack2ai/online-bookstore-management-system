@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_user_idempotency_key", columnList = "user_id,idempotency_key", unique = true)
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @ToString(exclude = {"user", "orderItems", "payment"})
 public class Order {
@@ -21,6 +23,9 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_orders_user"))
     private User user;
+
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
 
     @NotNull
     @Column(name = "subtotal_amount", nullable = false, precision = 10, scale = 2)
