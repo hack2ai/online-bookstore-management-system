@@ -18,7 +18,10 @@ import lombok.ToString;
  * retries and idempotent responses.</p>
  */
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_payments_provider_order_id", columnNames = "provider_order_id"),
+        @UniqueConstraint(name = "uk_payments_transaction_id", columnNames = "transaction_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
